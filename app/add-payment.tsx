@@ -1,200 +1,252 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, I18nManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Calendar, DollarSign, FileText, Save, ArrowRight } from 'lucide-react-native';
+import { useLayout } from '@/hooks/useLayout';
+import { Calendar, DollarSign, FileText, Save, ArrowLeft, CreditCard, Building, Receipt, Banknote, Smartphone } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { getCurrency } from '@/lib/formatting';
-
-// Enable RTL for Arabic
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 
 export default function AddPaymentScreen() {
   const { colors } = useTheme();
   const { t, language } = useTranslation();
+  const { isRTL, textAlign, flexDirection, getIconDirection } = useLayout();
+  
+  // Form state
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [entityName, setEntityName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [category, setCategory] = useState('');
+  const [reference, setReference] = useState('');
+  
+  // Validation state
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const styles = createStyles(colors);
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!amount) newErrors.amount = t('requiredField');
+    if (!description) newErrors.description = t('requiredField');
+    if (!paymentMethod) newErrors.paymentMethod = t('requiredField');
+    if (!date) newErrors.date = t('requiredField');
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSavePayment = () => {
-    if (!amount || !description) {
-      Alert.alert(language === 'ar' ? 'خطأ' : 'Error', language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
+    if (!validateForm()) {
+      Alert.alert(t('validationError'), t('fixErrorsMessage'));
       return;
     }
 
     // Here you would save to database
-    Alert.alert(language === 'ar' ? 'نجح' : 'Success', language === 'ar' ? 'تم حفظ الدفعة' : 'Payment saved', [
-      { text: language === 'ar' ? 'موافق' : 'OK', onPress: () => router.back() }
+    Alert.alert(t('success'), t('paymentSaved'), [
+      { text: t('ok'), onPress: () => router.back() }
     ]);
   };
 
+  const paymentMethods = [
+    { label: t('cash'), value: 'cash', icon: 'banknote' },
+    { label: t('creditCard'), value: 'credit_card', icon: 'credit-card' },
+    { label: t('bankTransfer'), value: 'bank_transfer', icon: 'building' },
+    { label: t('knet'), value: 'knet', icon: 'smartphone' },
+  ];
+
+  const categories = [
+    { label: t('loan'), value: 'loan' },
+    { label: t('bnpl'), value: 'bnpl' },
+    { label: t('personalDebt'), value: 'personal_debt' },
+    { label: t('oneOffPayment'), value: 'one_off' },
+  ];
+
+  const styles = createStyles(colors, isRTL);
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowRight size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>{language === 'ar' ? 'إضافة دفعة' : 'Add Payment'}</Text>
+        <Button
+          variant="ghost"
+          size="small"
+          icon={<ArrowLeft size={24} color={colors.text} style={{ transform: [{ scaleX: getIconDirection() }] }} />}
+          onPress={() => router.back()}
+          style={styles.backButton}
+        />
+        <Text style={[styles.title, { textAlign }]}>{t('addPayment')}</Text>
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.form}>
-          {/* Amount Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{language === 'ar' ? 'المبلغ' : 'Amount'}</Text>
-            <View style={styles.inputContainer}>
-              <DollarSign size={20} color={colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={amount}
-                onChangeText={setAmount}
-                placeholder={language === 'ar' ? 'أدخل المبلغ' : 'Enter Amount'}
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                textAlign="right"
-              />
-            </View>
-          </View>
+        {/* Payment Details */}
+        <Card style={styles.formCard}>
+          <Text style={styles.sectionTitle}>{t('paymentDetails')}</Text>
+          
+          <Input
+            label={t('amount')}
+            placeholder={t('enterAmount')}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+            error={errors.amount}
+            icon={<DollarSign size={20} color={colors.textSecondary} />}
+            required
+          />
 
-          {/* Description Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{language === 'ar' ? 'الوصف' : 'Description'}</Text>
-            <View style={styles.inputContainer}>
-              <FileText size={20} color={colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={description}
-                onChangeText={setDescription}
-                placeholder={language === 'ar' ? 'أدخل الوصف' : 'Enter Description'}
-                placeholderTextColor={colors.textSecondary}
-                textAlign="right"
-              />
-            </View>
-          </View>
+          <Input
+            label={t('description')}
+            placeholder={t('enterDescription')}
+            value={description}
+            onChangeText={setDescription}
+            error={errors.description}
+            icon={<FileText size={20} color={colors.textSecondary} />}
+            required
+          />
 
-          {/* Category Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{language === 'ar' ? 'الفئة' : 'Category'}</Text>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={category}
-                onChangeText={setCategory}
-                placeholder={language === 'ar' ? 'أدخل الفئة' : 'Enter Category'}
-                placeholderTextColor={colors.textSecondary}
-                textAlign="right"
-              />
-            </View>
-          </View>
+          <Select
+            label={t('paymentMethod')}
+            placeholder={t('selectPaymentMethod')}
+            value={paymentMethod}
+            onValueChange={setPaymentMethod}
+            options={paymentMethods}
+            error={errors.paymentMethod}
+            icon={<CreditCard size={20} color={colors.textSecondary} />}
+            required
+          />
 
-          {/* Date Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{language === 'ar' ? 'التاريخ' : 'Date'}</Text>
-            <View style={styles.inputContainer}>
-              <Calendar size={20} color={colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={date}
-                onChangeText={setDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.textSecondary}
-                textAlign="right"
-              />
-            </View>
-          </View>
+          <Input
+            label={t('entityName')}
+            placeholder={t('enterEntityName')}
+            value={entityName}
+            onChangeText={setEntityName}
+            icon={<Building size={20} color={colors.textSecondary} />}
+          />
+        </Card>
 
-          {/* Save Button */}
-          <TouchableOpacity style={styles.saveButton} onPress={handleSavePayment}>
-            <Save size={20} color="white" />
-            <Text style={styles.saveButtonText}>{language === 'ar' ? 'حفظ الدفعة' : 'Save Payment'}</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Additional Information */}
+        <Card style={styles.formCard}>
+          <Text style={styles.sectionTitle}>{t('additionalInfo')}</Text>
+          
+          <Select
+            label={t('category')}
+            placeholder={t('selectCategory')}
+            value={category}
+            onValueChange={setCategory}
+            options={categories}
+            icon={<Receipt size={20} color={colors.textSecondary} />}
+          />
+
+          <Input
+            label={t('paymentDate')}
+            placeholder="YYYY-MM-DD"
+            value={date}
+            onChangeText={setDate}
+            error={errors.date}
+            icon={<Calendar size={20} color={colors.textSecondary} />}
+            required
+          />
+
+          <Input
+            label={t('reference')}
+            placeholder={t('enterReference')}
+            value={reference}
+            onChangeText={setReference}
+            icon={<Receipt size={20} color={colors.textSecondary} />}
+          />
+
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchLabel}>{t('recurring')}</Text>
+            <Switch
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={isRecurring ? colors.background : colors.textSecondary}
+              ios_backgroundColor={colors.border}
+              onValueChange={setIsRecurring}
+              value={isRecurring}
+            />
+          </View>
+        </Card>
+
+        <Card style={styles.actionCard}>
+          <Button
+            title={t('savePayment')}
+            onPress={handleSavePayment}
+            variant="primary"
+            size="large"
+            icon={<Save size={20} color={colors.textInverse} />}
+            style={styles.saveButton}
+          />
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function createStyles(colors: any) {
+function createStyles(colors: any, isRTL: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
     },
     header: {
-      flexDirection: 'row',
+      flexDirection: isRTL ? 'row-reverse' : 'row',
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingVertical: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+      backgroundColor: colors.surface,
     },
     backButton: {
-      marginRight: 16,
-      padding: 8,
+      marginRight: isRTL ? 0 : 16,
+      marginLeft: isRTL ? 16 : 0,
     },
     title: {
       fontSize: 24,
       fontFamily: 'Cairo-Bold',
       color: colors.text,
-      textAlign: 'right',
+      flex: 1,
     },
     scrollContainer: {
       flex: 1,
       paddingHorizontal: 16,
     },
-    form: {
-      paddingVertical: 20,
+    formCard: {
+      marginVertical: 8,
     },
-    inputGroup: {
-      marginBottom: 20,
+    actionCard: {
+      marginVertical: 8,
+      marginBottom: 32,
     },
-    label: {
-      fontSize: 16,
-      fontFamily: 'Cairo-SemiBold',
+    sectionTitle: {
+      fontSize: 18,
+      fontFamily: 'Cairo-Bold',
       color: colors.text,
-      marginBottom: 8,
-      textAlign: 'right',
+      marginBottom: 16,
+      textAlign: isRTL ? 'right' : 'left',
     },
-    inputContainer: {
-      flexDirection: 'row-reverse',
+    switchContainer: {
+      flexDirection: isRTL ? 'row-reverse' : 'row',
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
+      justifyContent: 'space-between',
+      paddingVertical: 16,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      backgroundColor: colors.surfaceVariant,
+      borderRadius: 12,
+      marginTop: 16,
     },
-    inputIcon: {
-      marginLeft: 12,
-    },
-    input: {
-      flex: 1,
+    switchLabel: {
       fontSize: 16,
-      fontFamily: 'Cairo-Regular',
+      fontFamily: 'Cairo-Medium',
       color: colors.text,
-      textAlign: 'right',
     },
     saveButton: {
-      backgroundColor: colors.primary,
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 16,
-      paddingHorizontal: 24,
-      borderRadius: 12,
-      marginTop: 20,
-      gap: 8,
-    },
-    saveButtonText: {
-      color: 'white',
-      fontSize: 16,
-      fontFamily: 'Cairo-SemiBold',
+      width: '100%',
     },
   });
 }
