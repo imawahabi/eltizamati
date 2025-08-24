@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, Switch, I18nManager } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useTranslation';
-import { Calendar, DollarSign, FileText, Save, Repeat, CreditCard } from 'lucide-react-native';
+import { Calendar, DollarSign, FileText, Save, Repeat, ArrowRight } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { getCurrency } from '@/lib/formatting';
+
+// Enable RTL for Arabic
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
 
 export default function AddCommitmentScreen() {
   const { colors } = useTheme();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -18,35 +23,38 @@ export default function AddCommitmentScreen() {
   const styles = createStyles(colors);
 
   const handleSaveCommitment = () => {
-    if (!amount || !description || !dueDate) {
-      Alert.alert(t('error'), t('fillAllFields'));
+    if (!amount || !description) {
+      Alert.alert(language === 'ar' ? 'خطأ' : 'Error', language === 'ar' ? 'يرجى ملء جميع الحقول' : 'Please fill all fields');
       return;
     }
 
     // Here you would save to database
-    Alert.alert(t('success'), t('commitmentSaved'), [
-      { text: t('ok'), onPress: () => router.back() }
+    Alert.alert(language === 'ar' ? 'نجح' : 'Success', language === 'ar' ? 'تم حفظ الالتزام' : 'Commitment saved', [
+      { text: language === 'ar' ? 'موافق' : 'OK', onPress: () => router.back() }
     ]);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('addCommitment')}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ArrowRight size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>{language === 'ar' ? 'إضافة التزام' : 'Add Commitment'}</Text>
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.form}>
           {/* Amount Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('amount')}</Text>
+            <Text style={styles.label}>{language === 'ar' ? 'المبلغ' : 'Amount'}</Text>
             <View style={styles.inputContainer}>
               <DollarSign size={20} color={colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={amount}
                 onChangeText={setAmount}
-                placeholder={t('enterAmount')}
+                placeholder={language === 'ar' ? 'أدخل المبلغ' : 'Enter Amount'}
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 textAlign="right"
@@ -56,39 +64,35 @@ export default function AddCommitmentScreen() {
 
           {/* Description Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('description')}</Text>
+            <Text style={styles.label}>{language === 'ar' ? 'الوصف' : 'Description'}</Text>
             <View style={styles.inputContainer}>
               <FileText size={20} color={colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={description}
                 onChangeText={setDescription}
-                placeholder={t('enterDescription')}
+                placeholder={language === 'ar' ? 'أدخل الوصف' : 'Enter Description'}
                 placeholderTextColor={colors.textSecondary}
                 textAlign="right"
               />
             </View>
           </View>
 
-          {/* Category Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('category')}</Text>
-            <View style={styles.inputContainer}>
-              <CreditCard size={20} color={colors.textSecondary} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={category}
-                onChangeText={setCategory}
-                placeholder={t('enterCategory')}
-                placeholderTextColor={colors.textSecondary}
-                textAlign="right"
-              />
-            </View>
+          {/* Recurring Switch */}
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchLabel}>{language === 'ar' ? 'متكرر' : 'Recurring'}</Text>
+            <Switch
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={isRecurring ? colors.background : colors.textSecondary}
+              ios_backgroundColor={colors.border}
+              onValueChange={setIsRecurring}
+              value={isRecurring}
+            />
           </View>
 
           {/* Due Date Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('dueDate')}</Text>
+            <Text style={styles.label}>{language === 'ar' ? 'تاريخ الاستحقاق' : 'Due Date'}</Text>
             <View style={styles.inputContainer}>
               <Calendar size={20} color={colors.textSecondary} style={styles.inputIcon} />
               <TextInput
@@ -102,23 +106,11 @@ export default function AddCommitmentScreen() {
             </View>
           </View>
 
-          {/* Recurring Toggle */}
-          <TouchableOpacity 
-            style={[styles.toggleContainer, isRecurring && styles.toggleActive]}
-            onPress={() => setIsRecurring(!isRecurring)}
-          >
-            <View style={styles.toggleContent}>
-              <Text style={[styles.toggleText, isRecurring && styles.toggleTextActive]}>
-                {t('recurringCommitment')}
-              </Text>
-              <Repeat size={20} color={isRecurring ? 'white' : colors.textSecondary} />
-            </View>
-          </TouchableOpacity>
 
           {/* Save Button */}
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveCommitment}>
             <Save size={20} color="white" />
-            <Text style={styles.saveButtonText}>{t('saveCommitment')}</Text>
+            <Text style={styles.saveButtonText}>{language === 'ar' ? 'حفظ الالتزام' : 'Save Commitment'}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -133,10 +125,16 @@ function createStyles(colors: any) {
       backgroundColor: colors.background,
     },
     header: {
-      paddingHorizontal: 16,
-      paddingVertical: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
+    },
+    backButton: {
+      marginRight: 16,
+      padding: 8,
     },
     title: {
       fontSize: 24,
@@ -222,6 +220,22 @@ function createStyles(colors: any) {
       color: 'white',
       fontSize: 16,
       fontFamily: 'Cairo-SemiBold',
+      marginLeft: 8,
+    },
+    switchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      backgroundColor: colors.cardBackground,
+      borderRadius: 12,
+      marginBottom: 16,
+    },
+    switchLabel: {
+      fontSize: 16,
+      fontFamily: 'Cairo-Medium',
+      color: colors.text,
     },
   });
 }

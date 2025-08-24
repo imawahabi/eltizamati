@@ -12,7 +12,7 @@ import { AlertsList } from '@/components/AlertsList';
 import { QuickActions } from '@/components/QuickActions';
 import { Plus, TrendingUp, Calendar, DollarSign } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { formatCurrency, formatNumber } from '@/lib/formatting';
+import { formatCurrency, formatNumber, getCurrency } from '@/lib/formatting';
 
 // Enable RTL for Arabic
 I18nManager.allowRTL(true);
@@ -52,6 +52,7 @@ export default function DashboardScreen() {
               {salaryAmount % 1 !== 0 && (
                 <Text style={styles.decimalText}>.{formatNumber(Math.round((salaryAmount % 1) * 100), language)}</Text>
               )}
+              <Text style={styles.currencyText}> {getCurrency(language)}</Text>
             </View>
             <Text style={styles.quickStatLabel}>{language === 'ar' ? 'الراتب' : 'Salary'}</Text>
           </View>
@@ -188,11 +189,20 @@ function createStyles(colors: any) {
     amountContainer: {
       flexDirection: 'row',
       alignItems: 'baseline',
-      justifyContent: 'center',
+    },
+    secondaryButtonText: {
+      fontSize: 14,
+      fontFamily: 'Cairo-Medium',
+      color: colors.primary,
+    },
+    currencyText: {
+      fontSize: 12,
+      fontFamily: 'Cairo-Medium',
+      color: colors.textSecondary,
     },
     decimalText: {
-      fontSize: 12,
-      fontFamily: 'Cairo-Regular',
+      fontSize: 10,
+      fontFamily: 'Cairo-Medium',
       color: colors.textSecondary,
     },
     cardsGrid: {
@@ -246,11 +256,6 @@ function createStyles(colors: any) {
     },
     buttonText: {
       color: 'white',
-      fontSize: 16,
-      fontFamily: 'Cairo-SemiBold',
-    },
-    secondaryButtonText: {
-      color: colors.primary,
       fontSize: 16,
       fontFamily: 'Cairo-SemiBold',
     },

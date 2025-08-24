@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/stores/settings';
 import { Moon, Sun, Globe, DollarSign, Bell, Shield, Calendar, Target, Edit3, Clock } from 'lucide-react-native';
-import { formatCurrency, formatNumber, parseArabicNumber } from '@/lib/formatting';
+import { formatCurrency, formatNumber, parseArabicNumber, getCurrency } from '@/lib/formatting';
 
 // Enable RTL for Arabic
 I18nManager.allowRTL(true);
@@ -90,7 +90,7 @@ export default function SettingsScreen() {
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* General Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('general')}</Text>
+          <Text style={styles.sectionTitle}>{language === 'ar' ? 'عام' : 'General'}</Text>
           
           <View style={styles.settingItem}>
             <View style={styles.settingInfo}>
@@ -124,7 +124,7 @@ export default function SettingsScreen() {
 
         {/* Financial Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('financial')}</Text>
+          <Text style={styles.sectionTitle}>{language === 'ar' ? 'مالي' : 'Financial'}</Text>
           
           {/* Current Salary */}
           <View style={styles.settingItem}>
@@ -153,7 +153,7 @@ export default function SettingsScreen() {
                     {parseFloat(salaryInput) % 1 !== 0 && (
                       <Text style={styles.decimalText}>.{formatNumber(Math.round((parseFloat(salaryInput) % 1) * 100), language)}</Text>
                     )}
-                    <Text style={styles.currencyText}> {language === 'ar' ? 'ريال' : 'SAR'}</Text>
+                    <Text style={styles.currencyText}> {getCurrency(language)}</Text>
                   </View>
                 )}
               </View>
@@ -221,7 +221,7 @@ export default function SettingsScreen() {
                     {savingsTarget % 1 !== 0 && (
                       <Text style={styles.decimalText}>.{formatNumber(Math.round((savingsTarget % 1) * 100), language)}</Text>
                     )}
-                    <Text style={styles.currencyText}> {language === 'ar' ? 'ريال' : 'SAR'}</Text>
+                    <Text style={styles.currencyText}> {getCurrency(language)}</Text>
                   </View>
                 )}
               </View>
@@ -286,19 +286,19 @@ export default function SettingsScreen() {
 
         {/* Privacy Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('privacy')}</Text>
+          <Text style={styles.sectionTitle}>{language === 'ar' ? 'الخصوصية' : 'Privacy'}</Text>
           
           <TouchableOpacity style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <Shield size={20} color={colors.textSecondary} />
-              <Text style={styles.settingLabel}>{t('exportData')}</Text>
+              <Text style={styles.settingLabel}>{language === 'ar' ? 'تصدير البيانات' : 'Export Data'}</Text>
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.settingItem}>
             <View style={styles.settingInfo}>
               <Shield size={20} color={colors.textSecondary} />
-              <Text style={styles.settingLabel}>{t('importData')}</Text>
+              <Text style={styles.settingLabel}>{language === 'ar' ? 'استيراد البيانات' : 'Import Data'}</Text>
             </View>
           </TouchableOpacity>
         </View>
