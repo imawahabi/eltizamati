@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,1437 +10,992 @@ import {
   RefreshControl,
   I18nManager,
   Dimensions,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-  Bell,
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  CheckCircle,
-  Calendar,
-  DollarSign,
-  CreditCard,
-  PieChart,
-  Target,
-  Clock,
-  ArrowUpRight,
-  ArrowDownRight,
   Eye,
   EyeOff,
   Plus,
-  Send,
-  Download,
-  User,
-  MoreHorizontal,
-  Zap,
-  TrendingDown as ArrowDown,
-  Activity,
-  Percent,
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  CreditCard,
+  Users,
+  AlertCircle,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  ChevronRight,
+  Wallet,
+  FileText,
+  PieChart,
+  Bell,
+  Target,
+  DollarSign,
+  Banknote,
 } from 'lucide-react-native';
-
-// Enable RTL for Arabic
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function DashboardScreen() {
+interface FinancialSummary {
+  totalCommitments: number;
+  monthlyPayments: number;
+  completedPayments: number;
+  upcomingPayments: number;
+  totalDebt: number;
+  paidAmount: number;
+}
+
+interface RecentActivity {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  type: 'payment' | 'debt' | 'commitment';
+  status: 'completed' | 'pending' | 'overdue';
+  entity: string;
+}
+
+interface QuickAction {
+  id: string;
+  title: string;
+  icon: any;
+  route: string;
+  color: string;
+  gradientColors: string[];
+}
+
+const DashboardScreen = () => {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [loading, setLoading] = useState(false);
+  
+  // Mock data - will be replaced with actual data from database
+  const [financialData, setFinancialData] = useState<FinancialSummary>({
+    totalCommitments: 12,
+    monthlyPayments: 2847.500,
+    completedPayments: 8,
+    upcomingPayments: 4,
+    totalDebt: 18240.750,
+    paidAmount: 12560.250,
+  });
 
-  const onRefresh = React.useCallback(() => {
+  const [recentActivities] = useState<RecentActivity[]>([
+    {
+      id: '1',
+      title: 'قسط بنك الكويت الوطني',
+      amount: 450.000,
+      date: '2025-01-15',
+      type: 'payment',
+      status: 'completed',
+      entity: 'NBK',
+    },
+    {
+      id: '2',
+      title: 'قسط X-cite الإلكترونيات',
+      amount: 85.500,
+      date: '2025-01-20',
+      type: 'payment',
+      status: 'pending',
+      entity: 'X-cite',
+    },
+    {
+      id: '3',
+      title: 'دين شخصي - أحمد',
+      amount: 200.000,
+      date: '2025-01-25',
+      type: 'debt',
+      status: 'pending',
+      entity: 'Personal',
+    },
+    {
+      id: '4',
+      title: 'قسط Tabby',
+      amount: 45.750,
+      date: '2025-01-10',
+      type: 'payment',
+      status: 'overdue',
+      entity: 'Tabby',
+    },
+  ]);
+
+  const quickActions: QuickAction[] = [
+    {
+      id: '1',
+      title: 'إضافة التزام',
+      icon: Plus,
+      route: '/add-commitment',
+      color: '#3B82F6',
+      gradientColors: ['#3B82F6', '#60A5FA'],
+    },
+    {
+      id: '2',
+      title: 'الالتزامات',
+      icon: FileText,
+      route: '/(tabs)/commitments',
+      color: '#8B5CF6',
+      gradientColors: ['#8B5CF6', '#A78BFA'],
+    },
+    {
+      id: '3',
+      title: 'التحليلات',
+      icon: PieChart,
+      route: '/(tabs)/analytics',
+      color: '#10B981',
+      gradientColors: ['#10B981', '#34D399'],
+    },
+    {
+      id: '4',
+      title: 'التنبيهات',
+      icon: Bell,
+      route: '/notifications',
+      color: '#F59E0B',
+      gradientColors: ['#F59E0B', '#FCD34D'],
+    },
+  ];
+
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
     }, 2000);
   }, []);
 
-  const quickActions = [
-    { id: 1, title: 'إضافة التزام', icon: Plus, color: '#1E40AF', action: () => console.log('Add commitment') },
-    { id: 2, title: 'تسجيل دفعة', icon: DollarSign, color: '#0369A1', route: '/commitments' as const },
-    { id: 3, title: 'تأجيل قسط', icon: Clock, color: '#0284C7', route: '/commitments' as const },
-    { id: 4, title: 'التحليلات', icon: PieChart, color: '#0EA5E9', route: '/analytics' as const },
-    { id: 5, title: 'التذكيرات', icon: Bell, color: '#0F766E', route: '/settings' as const },
-    { id: 6, title: 'الجهات', icon: User, color: '#0891B2', route: '/settings' as const },
-  ];
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('ar-KW', {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    });
+  };
 
-  const recentCommitments = [
-    { id: 1, title: 'قرض NBK', amount: 160.500, type: 'loan', entity: 'National Bank of Kuwait', date: '2025-01-25', status: 'pending', daysLeft: 3 },
-    { id: 2, title: 'تقسيط X-cite', amount: 18.750, type: 'bnpl', entity: 'X-cite (Alghanim)', date: '2025-01-15', status: 'completed', daysLeft: 0 },
-    { id: 3, title: 'دين محمد', amount: 40.000, type: 'friend', entity: 'محمد أحمد', date: '2025-01-10', status: 'overdue', daysLeft: -15 },
-    { id: 4, title: 'تقسيط Tabby', amount: 25.250, type: 'bnpl', entity: 'Tabby', date: '2025-01-28', status: 'pending', daysLeft: 6 },
-  ];
+  const getRemainingBalance = () => {
+    const salary = 1850.000;
+    return salary - financialData.monthlyPayments;
+  };
+
+  const getDebtProgress = () => {
+    const progress = (financialData.paidAmount / financialData.totalDebt) * 100;
+    return Math.round(progress);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return '#10B981';
+      case 'pending':
+        return '#F59E0B';
+      case 'overdue':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return CheckCircle;
+      case 'pending':
+        return Clock;
+      case 'overdue':
+        return AlertTriangle;
+      default:
+        return AlertCircle;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'مكتمل';
+      case 'pending':
+        return 'قادم';
+      case 'overdue':
+        return 'متأخر';
+      default:
+        return 'غير محدد';
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
       
-      {/* Modern Header with Glass Effect */}
-      <LinearGradient
-        colors={['#1E40AF', '#3B82F6', '#60A5FA']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.modernHeader}
-      >
-        <View style={styles.headerDecoration} />
-        <View style={styles.headerContent}>
-          <View style={styles.headerTop}>
-            <View style={styles.userSection}>
-              <View style={styles.avatarContainer}>
-                <User size={24} color="#FFFFFF" />
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.welcomeText}>مرحباً بك</Text>
-                <Text style={styles.userName}>أحمد محمد</Text>
-              </View>
-            </View>
-            <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.headerActionButton}>
-                <Eye size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.notificationButton}>
-                <Bell size={20} color="#FFFFFF" />
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.badgeText}>3</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* Balance Display */}
-          <View style={styles.balanceDisplay}>
-            <Text style={styles.balanceLabel}>إجمالي الرصيد المتاح</Text>
-            <View style={styles.balanceRow}>
-              <TouchableOpacity 
-                style={styles.visibilityButton}
-                onPress={() => setBalanceVisible(!balanceVisible)}
-              >
-                {balanceVisible ? 
-                  <Eye size={20} color="rgba(255,255,255,0.8)" /> : 
-                  <EyeOff size={20} color="rgba(255,255,255,0.8)" />
-                }
-              </TouchableOpacity>
-              <Text style={styles.balanceAmount}>
-                {balanceVisible ? '549.750 د.ك' : '••••••••'}
-              </Text>
-            </View>
-            <View style={styles.balanceChange}>
-              <TrendingUp size={16} color="#10B981" />
-              <Text style={styles.changeText}>+2.5% من الشهر الماضي</Text>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Quick Actions Glass Bar */}
-      <View style={styles.quickActionsBar}>
-        <LinearGradient
-          colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.85)']}
-          style={styles.quickActionsGradient}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickActionsContent}
-          >
-            {quickActions.slice(0, 4).map((action) => (
-              <TouchableOpacity
-                key={action.id}
-                style={styles.quickActionItem}
-                onPress={() => action.route ? router.push(action.route) : action.action?.()}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: action.color }]}>
-                  <action.icon size={18} color="#FFFFFF" strokeWidth={2.5} />
-                </View>
-                <Text style={styles.quickActionText}>{action.title}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </LinearGradient>
-      </View>
-
       <ScrollView
-        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#3B82F6"
+            colors={['#3B82F6']}
+          />
         }
       >
-        {/* Glass Morphism Cards */}
-        <View style={styles.cardsContainer}>
-          {/* Salary Card */}
-          <View style={styles.glassCard}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
-              style={styles.glassGradient}
-            >
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIcon}>
-                  <Wallet size={24} color="#10B981" />
-                </View>
-                <Text style={styles.cardTitle}>الراتب الشهري</Text>
+        {/* Modern Header with Gradient */}
+        <LinearGradient
+          colors={['#1E40AF', '#3B82F6', '#60A5FA']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.header}
+        >
+          <View style={styles.headerContent}>
+            <View style={styles.headerTop}>
+              <View>
+                <Text style={styles.greeting}>مرحباً بك 👋</Text>
+                <Text style={styles.userName}>أحمد المحمد</Text>
               </View>
-              <Text style={styles.cardAmount}>
-                {balanceVisible ? '1,200.000 د.ك' : '•••••••'}
-              </Text>
-              <View style={styles.progressContainer}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: '100%', backgroundColor: '#10B981' }]} />
+              <TouchableOpacity 
+                style={styles.notificationButton}
+                onPress={() => router.push('/notifications')}
+              >
+                <Bell size={24} color="#FFFFFF" />
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>3</Text>
                 </View>
-                <Text style={styles.progressLabel}>100% مستلم</Text>
-              </View>
-            </LinearGradient>
-          </View>
+              </TouchableOpacity>
+            </View>
 
-          {/* Commitments Card */}
-          <View style={styles.glassCard}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.1)']}
-              style={styles.glassGradient}
-            >
-              <View style={styles.cardHeader}>
-                <View style={[styles.cardIcon, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                  <CreditCard size={24} color="#EF4444" />
-                </View>
-                <Text style={styles.cardTitle}>إجمالي الالتزامات</Text>
-              </View>
-              <Text style={styles.cardAmount}>
-                {balanceVisible ? '650.250 د.ك' : '•••••••'}
-              </Text>
-              <View style={styles.progressContainer}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: '54.2%', backgroundColor: '#EF4444' }]} />
-                </View>
-                <Text style={styles.progressLabel}>54.2% من الراتب</Text>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
-
-        {/* Enhanced Overview Section */}
-        <View style={styles.overviewSection}>
-          {/* Financial Progress Card */}
-          <View style={styles.progressCard}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.98)', 'rgba(255,255,255,0.92)']}
-              style={styles.progressCardGradient}
-            >
-              <View style={styles.progressHeader}>
-                <View style={styles.progressHeaderLeft}>
-                  <View style={styles.progressIconContainer}>
-                    <PieChart size={24} color="#1E40AF" />
-                  </View>
-                  <View>
-                    <Text style={styles.progressTitle}>النظرة العامة المالية</Text>
-                    <Text style={styles.progressSubtitle}>يناير 2025</Text>
-                  </View>
-                </View>
-                <TouchableOpacity style={styles.moreButton}>
-                  <MoreHorizontal size={20} color="#6B7280" />
+            {/* Balance Card */}
+            <View style={styles.balanceCard}>
+              <View style={styles.balanceHeader}>
+                <Text style={styles.balanceLabel}>المتبقي لهذا الشهر</Text>
+                <TouchableOpacity
+                  onPress={() => setBalanceVisible(!balanceVisible)}
+                  style={styles.visibilityToggle}
+                >
+                  {balanceVisible ? (
+                    <Eye size={20} color="#64748B" />
+                  ) : (
+                    <EyeOff size={20} color="#64748B" />
+                  )}
                 </TouchableOpacity>
               </View>
               
-              <View style={styles.enhancedProgressContainer}>
-                <View style={styles.circularProgressWrapper}>
-                  <View style={styles.enhancedProgressRing}>
-                    <View style={styles.progressCenter}>
-                      <Text style={styles.progressMainValue}>45.8%</Text>
-                      <Text style={styles.progressMainLabel}>متبقي</Text>
-                    </View>
+              <View style={styles.balanceAmount}>
+                <Text style={styles.currency}>د.ك</Text>
+                <Text style={styles.amount}>
+                  {balanceVisible ? formatCurrency(getRemainingBalance()) : '•••.•••'}
+                </Text>
+              </View>
+
+              <View style={styles.balanceFooter}>
+                <View style={styles.balanceItem}>
+                  <View style={styles.balanceIndicator}>
+                    <ArrowUpRight size={16} color="#10B981" />
+                  </View>
+                  <View>
+                    <Text style={styles.balanceItemLabel}>الدخل</Text>
+                    <Text style={styles.balanceItemValue}>
+                      {balanceVisible ? formatCurrency(1850.000) : '•••.•••'}
+                    </Text>
                   </View>
                 </View>
                 
-                <View style={styles.progressStats}>
-                  <View style={styles.progressStatItem}>
-                    <View style={[styles.statIndicator, { backgroundColor: '#10B981' }]} />
-                    <View style={styles.statContent}>
-                      <Text style={styles.statTitle}>الراتب الشهري</Text>
-                      <Text style={styles.statValue}>1,200.000 د.ك</Text>
-                      <Text style={styles.statPercentage}>100%</Text>
-                    </View>
+                <View style={styles.balanceDivider} />
+                
+                <View style={styles.balanceItem}>
+                  <View style={[styles.balanceIndicator, { backgroundColor: '#FEE2E2' }]}>
+                    <ArrowDownRight size={16} color="#EF4444" />
                   </View>
-                  <View style={styles.progressStatItem}>
-                    <View style={[styles.statIndicator, { backgroundColor: '#EF4444' }]} />
-                    <View style={styles.statContent}>
-                      <Text style={styles.statTitle}>إجمالي الالتزامات</Text>
-                      <Text style={styles.statValue}>650.250 د.ك</Text>
-                      <Text style={styles.statPercentage}>54.2%</Text>
-                    </View>
-                  </View>
-                  <View style={styles.progressStatItem}>
-                    <View style={[styles.statIndicator, { backgroundColor: '#1E40AF' }]} />
-                    <View style={styles.statContent}>
-                      <Text style={styles.statTitle}>المبلغ المتبقي</Text>
-                      <Text style={styles.statValue}>549.750 د.ك</Text>
-                      <Text style={styles.statPercentage}>45.8%</Text>
-                    </View>
+                  <View>
+                    <Text style={styles.balanceItemLabel}>المدفوعات</Text>
+                    <Text style={styles.balanceItemValue}>
+                      {balanceVisible ? formatCurrency(financialData.monthlyPayments) : '•••.•••'}
+                    </Text>
                   </View>
                 </View>
               </View>
-            </LinearGradient>
-          </View>
-
-          {/* Enhanced Quick Stats */}
-          <View style={styles.quickStatsContainer}>
-            <View style={styles.quickStatCard}>
-              <LinearGradient
-                colors={['#10B981', '#059669']}
-                style={styles.statCardGradient}
-              >
-                <View style={styles.statCardIcon}>
-                  <CheckCircle size={24} color="#FFFFFF" />
-                </View>
-                <Text style={styles.statCardNumber}>8</Text>
-                <Text style={styles.statCardLabel}>مكتمل</Text>
-                <View style={styles.statCardBadge}>
-                  <Text style={styles.badgeLabel}>+2 هذا الأسبوع</Text>
-                </View>
-              </LinearGradient>
-            </View>
-            
-            <View style={styles.quickStatCard}>
-              <LinearGradient
-                colors={['#F59E0B', '#D97706']}
-                style={styles.statCardGradient}
-              >
-                <View style={styles.statCardIcon}>
-                  <Clock size={24} color="#FFFFFF" />
-                </View>
-                <Text style={styles.statCardNumber}>4</Text>
-                <Text style={styles.statCardLabel}>معلق</Text>
-                <View style={styles.statCardBadge}>
-                  <Text style={styles.badgeLabel}>يحتاج متابعة</Text>
-                </View>
-              </LinearGradient>
-            </View>
-            
-            <View style={styles.quickStatCard}>
-              <LinearGradient
-                colors={['#EF4444', '#DC2626']}
-                style={styles.statCardGradient}
-              >
-                <View style={styles.statCardIcon}>
-                  <AlertTriangle size={24} color="#FFFFFF" />
-                </View>
-                <Text style={styles.statCardNumber}>1</Text>
-                <Text style={styles.statCardLabel}>متأخر</Text>
-                <View style={styles.statCardBadge}>
-                  <Text style={styles.badgeLabel}>يحتاج إجراء</Text>
-                </View>
-              </LinearGradient>
             </View>
           </View>
-        </View>
+        </LinearGradient>
 
-
-        {/* Recent Commitments */}
+        {/* Quick Actions */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>الالتزامات الأخيرة</Text>
-            <TouchableOpacity onPress={() => router.push('/commitments')}>
-              <Text style={styles.viewAllText}>عرض الكل</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.commitmentsContainer}>
-            {recentCommitments.map((commitment) => (
-              <View key={commitment.id} style={styles.commitmentCard}>
-                <View style={styles.commitmentLeft}>
-                  <View style={[
-                    styles.commitmentIcon,
-                    { backgroundColor: getCommitmentColor(commitment.type) }
-                  ]}>
-                    {getCommitmentIcon(commitment.type)}
-                  </View>
-                  <View style={styles.commitmentInfo}>
-                    <Text style={styles.commitmentTitle}>{commitment.title}</Text>
-                    <Text style={styles.commitmentEntity}>{commitment.entity}</Text>
-                    <Text style={styles.commitmentDate}>{commitment.date}</Text>
-                  </View>
-                </View>
-                <View style={styles.commitmentRight}>
-                  <Text style={[
-                    styles.commitmentAmount,
-                    { color: getCommitmentColor(commitment.type) }
-                  ]}>
-                    {commitment.amount.toFixed(3)} د.ك
-                  </Text>
-                  <View style={styles.commitmentMeta}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(commitment.status) }
-                    ]}>
-                      <Text style={styles.statusText}>
-                        {getStatusText(commitment.status)}
-                      </Text>
-                    </View>
-                    {commitment.daysLeft !== 0 && (
-                      <Text style={[styles.daysLeft, { color: commitment.daysLeft < 0 ? '#DC2626' : '#6B7280' }]}>
-                        {commitment.daysLeft > 0 ? `${commitment.daysLeft} يوم` : `متأخر ${Math.abs(commitment.daysLeft)} يوم`}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              </View>
+          <Text style={styles.sectionTitle}>إجراءات سريعة</Text>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.id}
+                style={styles.quickActionCard}
+                onPress={() => router.push(action.route as any)}
+                activeOpacity={0.7}
+              >
+                <LinearGradient
+                  colors={action.gradientColors as any}
+                  style={styles.quickActionGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <action.icon size={24} color="#FFFFFF" />
+                </LinearGradient>
+                <Text style={styles.quickActionTitle}>{action.title}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Monthly Summary */}
+        {/* Financial Overview */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ملخص الشهر</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>نظرة مالية عامة</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/analytics')}>
+              <Text style={styles.seeAllText}>عرض الكل</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.overviewCards}>
+            {/* Total Debt Card */}
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewCardHeader}>
+                <View style={[styles.overviewIconContainer, { backgroundColor: '#EBF5FF' }]}>
+                  <Wallet size={20} color="#3B82F6" />
+                </View>
+                <Text style={styles.overviewCardLabel}>إجمالي الديون</Text>
+              </View>
+              <Text style={styles.overviewCardValue}>
+                {formatCurrency(financialData.totalDebt)} د.ك
+              </Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${getDebtProgress()}%`, backgroundColor: '#3B82F6' }
+                    ]} 
+                  />
+                </View>
+                <Text style={styles.progressText}>{getDebtProgress()}% مسدد</Text>
+              </View>
+            </View>
+
+            {/* Monthly Payments Card */}
+            <View style={styles.overviewCard}>
+              <View style={styles.overviewCardHeader}>
+                <View style={[styles.overviewIconContainer, { backgroundColor: '#F0FDF4' }]}>
+                  <CreditCard size={20} color="#10B981" />
+                </View>
+                <Text style={styles.overviewCardLabel}>الدفعات الشهرية</Text>
+              </View>
+              <Text style={styles.overviewCardValue}>
+                {formatCurrency(financialData.monthlyPayments)} د.ك
+              </Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{financialData.upcomingPayments}</Text>
+                  <Text style={styles.statLabel}>قادمة</Text>
+                </View>
+                <View style={styles.statDivider} />
+                <View style={styles.statItem}>
+                  <Text style={styles.statValue}>{financialData.completedPayments}</Text>
+                  <Text style={styles.statLabel}>مكتملة</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Commitments Summary */}
           <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>الراتب الشهري:</Text>
-              <Text style={styles.summaryValue}>1,200.000 د.ك</Text>
+            <View style={styles.summaryHeader}>
+              <View style={styles.summaryIconContainer}>
+                <Target size={20} color="#8B5CF6" />
+              </View>
+              <Text style={styles.summaryTitle}>ملخص الالتزامات</Text>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>إجمالي الأقساط:</Text>
-              <Text style={styles.summaryValue}>-650.250 د.ك</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabelBold}>المتبقي المتوقع:</Text>
-              <Text style={[styles.summaryValueBold, { color: '#10B981' }]}>549.750 د.ك</Text>
+            <View style={styles.summaryStats}>
+              <View style={styles.summaryStatItem}>
+                <Text style={styles.summaryStatValue}>{financialData.totalCommitments}</Text>
+                <Text style={styles.summaryStatLabel}>إجمالي الالتزامات</Text>
+              </View>
+              <View style={styles.summaryStatDivider} />
+              <View style={styles.summaryStatItem}>
+                <Text style={styles.summaryStatValue}>{financialData.upcomingPayments}</Text>
+                <Text style={styles.summaryStatLabel}>مدفوعات قادمة</Text>
+              </View>
+              <View style={styles.summaryStatDivider} />
+              <View style={styles.summaryStatItem}>
+                <Text style={styles.summaryStatValue}>3</Text>
+                <Text style={styles.summaryStatLabel}>تنبيهات نشطة</Text>
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Statistics Overview */}
+        {/* Recent Activity */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>نظرة عامة</Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Target size={20} color="#1E40AF" />
-              </View>
-              <Text style={styles.statLabel}>الأهداف المحققة</Text>
-              <Text style={styles.oldStatValue}>75%</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <Clock size={20} color="#F59E0B" />
-              </View>
-              <Text style={styles.statLabel}>الالتزامات المعلقة</Text>
-              <Text style={styles.oldStatValue}>4</Text>
-            </View>
-            <View style={styles.statCard}>
-              <View style={styles.statIcon}>
-                <CheckCircle size={20} color="#10B981" />
-              </View>
-              <Text style={styles.statLabel}>المكتملة هذا الشهر</Text>
-              <Text style={styles.oldStatValue}>8</Text>
-            </View>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>النشاط الأخير</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/commitments')}>
+              <Text style={styles.seeAllText}>عرض الكل</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.activityList}>
+            {recentActivities.map((activity, index) => {
+              const StatusIcon = getStatusIcon(activity.status);
+              return (
+                <TouchableOpacity
+                  key={activity.id}
+                  style={[
+                    styles.activityItem,
+                    index === recentActivities.length - 1 && styles.lastActivityItem
+                  ]}
+                  onPress={() => router.push('/commitment-details')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.activityLeft}>
+                    <View 
+                      style={[
+                        styles.activityIcon,
+                        { backgroundColor: `${getStatusColor(activity.status)}15` }
+                      ]}
+                    >
+                      <StatusIcon size={20} color={getStatusColor(activity.status)} />
+                    </View>
+                    <View style={styles.activityDetails}>
+                      <Text style={styles.activityTitle}>{activity.title}</Text>
+                      <View style={styles.activityMeta}>
+                        <Text style={styles.activityEntity}>{activity.entity}</Text>
+                        <Text style={styles.activityDot}>•</Text>
+                        <Text style={styles.activityDate}>{activity.date}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.activityRight}>
+                    <Text style={styles.activityAmount}>
+                      {formatCurrency(activity.amount)} د.ك
+                    </Text>
+                    <View 
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: `${getStatusColor(activity.status)}15` }
+                      ]}
+                    >
+                      <Text 
+                        style={[
+                          styles.statusBadgeText,
+                          { color: getStatusColor(activity.status) }
+                        ]}
+                      >
+                        {getStatusText(activity.status)}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
+
+        {/* AI Insights */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>توصيات ذكية</Text>
+          <View style={styles.insightsCard}>
+            <LinearGradient
+              colors={['#F3E8FF', '#E9D5FF']}
+              style={styles.insightGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.insightIcon}>
+                <TrendingUp size={24} color="#8B5CF6" />
+              </View>
+              <View style={styles.insightContent}>
+                <Text style={styles.insightTitle}>توفير محتمل هذا الشهر</Text>
+                <Text style={styles.insightDescription}>
+                  يمكنك توفير 125.000 د.ك بسداد قسط X-cite مبكراً وتجنب رسوم التأخير
+                </Text>
+                <TouchableOpacity style={styles.insightAction}>
+                  <Text style={styles.insightActionText}>عرض التفاصيل</Text>
+                  <ChevronRight size={16} color="#8B5CF6" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+
+        {/* Add bottom spacing */}
+        <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function getCommitmentColor(type: string) {
-  switch (type) {
-    case 'loan':
-      return '#1E40AF';
-    case 'bnpl':
-      return '#0369A1';
-    case 'friend':
-      return '#0284C7';
-    case 'oneoff':
-      return '#0EA5E9';
-    default:
-      return '#6B7280';
-  }
-}
-
-function getCommitmentIcon(type: string) {
-  switch (type) {
-    case 'loan':
-      return <CreditCard size={20} color="#FFFFFF" />;
-    case 'bnpl':
-      return <Wallet size={20} color="#FFFFFF" />;
-    case 'friend':
-      return <User size={20} color="#FFFFFF" />;
-    case 'oneoff':
-      return <DollarSign size={20} color="#FFFFFF" />;
-    default:
-      return <AlertTriangle size={20} color="#FFFFFF" />;
-  }
-}
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'completed':
-      return '#10B981';
-    case 'pending':
-      return '#F59E0B';
-    case 'overdue':
-      return '#EF4444';
-    default:
-      return '#6B7280';
-  }
-}
-
-function getStatusText(status: string) {
-  switch (status) {
-    case 'completed':
-      return 'مكتمل';
-    case 'pending':
-      return 'معلق';
-    case 'overdue':
-      return 'متأخر';
-    default:
-      return 'غير محدد';
-  }
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingTop: 20,
-    paddingBottom: 50,
-    paddingHorizontal: 24,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  modernHeader: {
-    paddingTop: 50,
-    paddingBottom: 35,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerDecoration: {
-    position: 'absolute',
-    top: 0,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  headerTop: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  userSection: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  userInfo: {
-    marginLeft: 16,
-    alignItems: 'flex-end',
-  },
-  headerActions: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  balanceDisplay: {
-    alignItems: 'flex-end',
-    flex: 1,
-  },
-  balanceLabel: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: 'Cairo-Regular',
-    marginBottom: 8,
-  },
-  balanceRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 6,
-  },
-  balanceAmount: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    textAlign: 'right',
-    flex: 1,
-  },
-  visibilityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  balanceChange: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 6,
-  },
-  changeText: {
-    fontSize: 14,
-    color: '#10B981',
-    fontFamily: 'Cairo-Medium',
+    paddingTop: Platform.OS === 'ios' ? 0 : StatusBar.currentHeight,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   headerContent: {
-    flex: 1,
+    padding: 20,
+    paddingBottom: 30,
   },
-  headerLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
   },
-  avatarContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  welcomeText: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
+  greeting: {
+    fontSize: 14,
+    color: '#E0E7FF',
+    fontFamily: 'Cairo',
+    marginBottom: 4,
   },
   userName: {
-    fontSize: 20,
-    color: '#FFFFFF',
+    fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: 'Cairo-Bold',
-    textAlign: 'right',
-    marginTop: 2,
+    color: '#FFFFFF',
+    fontFamily: 'Cairo',
   },
   notificationButton: {
-    position: 'relative',
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 2,
-    left: 2,
+    top: 0,
+    right: 0,
     backgroundColor: '#EF4444',
     borderRadius: 10,
     width: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
-  badgeText: {
+  notificationBadgeText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
-  scrollView: {
-    flex: 1,
+  balanceCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  cardsContainer: {
+  balanceHeader: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 25,
-    gap: 12,
-  },
-  glassCard: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-  },
-  glassGradient: {
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  cardHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  cardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  cardTitle: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  cardAmount: {
-    fontSize: 22,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'right',
-  },
-  progressTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginLeft: 12,
-  },
-  progressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  summaryGradient: {
-    padding: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  summaryHeader: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  summaryTitle: {
-    fontSize: 20,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  summarySubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-  },
-  circularProgressContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  circularProgress: {
-    width: 120,
-    height: 120,
-    marginLeft: 24,
-  },
-  progressRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 8,
-    borderColor: '#E5E7EB',
-    borderTopColor: '#1E40AF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ rotate: '-90deg' }],
-  },
-  progressPercentage: {
-    fontSize: 20,
-    color: '#1E40AF',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    transform: [{ rotate: '90deg' }],
-  },
-  progressLegend: {
-    flex: 1,
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  legendValue: {
-    fontSize: 14,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-  },
-  quickStatsGrid: {
-    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.3)',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  statNumber: {
-    fontSize: 20,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    marginBottom: 4,
-    textAlign: 'center',
+  balanceLabel: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo',
   },
-  integratedCard: {
-    marginHorizontal: 24,
-    marginTop: -40,
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 16,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
+  visibilityToggle: {
+    padding: 4,
   },
-  cardSubtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-    marginTop: 4,
-    textAlign: 'right',
-  },
-  oldVisibilityButton: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(30, 64, 175, 0.1)',
-  },
-  salarySection: {
+  balanceAmount: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
     marginBottom: 20,
   },
-  salaryHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  salaryIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 14,
-  },
-  salaryLabel: {
-    flex: 1,
-    fontSize: 17,
-    color: '#374151',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  salaryAmount: {
+  currency: {
     fontSize: 16,
-    color: '#10B981',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-  },
-  commitmentsSection: {
-    marginBottom: 20,
-  },
-  commitmentsHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  commitmentsIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 14,
-  },
-  commitmentsLabel: {
-    flex: 1,
-    fontSize: 17,
-    color: '#374151',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  commitmentsAmount: {
-    fontSize: 16,
-    color: '#EF4444',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-  },
-  remainingSection: {
-    marginBottom: 16,
-  },
-  remainingDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 16,
-  },
-  remainingHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  remainingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(30, 64, 175, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
-  },
-  remainingLabel: {
-    flex: 1,
-    fontSize: 19,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  remainingAmount: {
-    fontSize: 18,
-    color: '#1E40AF',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-  },
-  progressContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  progressBar: {
-    flex: 1,
-    height: 10,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 5,
-    overflow: 'hidden',
-    marginLeft: 14,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 5,
-    alignSelf: 'flex-end',
-  },
-  progressText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
-    minWidth: 60,
-    textAlign: 'right',
-  },
-  quickStats: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-around',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  statItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  statText: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
+    color: '#94A3B8',
     marginRight: 8,
-    textAlign: 'right',
+    fontFamily: 'Cairo',
+  },
+  amount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+  },
+  balanceFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  balanceItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  balanceIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  balanceItemLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontFamily: 'Cairo',
+    marginBottom: 2,
+  },
+  balanceItemValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+  },
+  balanceDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 16,
   },
   section: {
     paddingHorizontal: 20,
-    marginTop: 32,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    color: '#1F2937',
-    fontWeight: 'bold',
-    fontFamily: 'Cairo-Bold',
-    marginBottom: 16,
-    textAlign: 'right',
+    marginTop: 24,
   },
   sectionHeader: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  viewAllText: {
-    fontSize: 15,
-    color: '#4F46E5',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
   },
-  quickActionsBar: {
-    marginHorizontal: 20,
-    marginTop: -25,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 12,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    zIndex: 10,
-  },
-  quickActionsGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  quickActionsContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 4,
-  },
-  quickActionItem: {
-    alignItems: 'center',
-    minWidth: 75,
-    paddingHorizontal: 8,
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-  },
-  quickActionText: {
-    fontSize: 13,
-    color: '#374151',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'center',
-    lineHeight: 18,
-    fontWeight: '500',
+  seeAllText: {
+    fontSize: 14,
+    color: '#3B82F6',
+    fontFamily: 'Cairo',
   },
   quickActionsGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap-reverse',
-    justifyContent: 'space-between',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
   },
-  actionButton: {
-    width: (screenWidth - 70) / 3,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
+  quickActionCard: {
+    width: (screenWidth - 52) / 4,
     alignItems: 'center',
-    marginBottom: 12,
-    elevation: 3,
+    marginHorizontal: 6,
+    marginBottom: 16,
+  },
+  quickActionGradient: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 4,
+    elevation: 3,
   },
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  actionText: {
-    fontSize: 15,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Medium',
+  quickActionTitle: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo',
     textAlign: 'center',
   },
-  commitmentsContainer: {
+  overviewCards: {
+    flexDirection: 'row',
+    marginHorizontal: -6,
+    marginBottom: 16,
+  },
+  overviewCard: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 8,
-    elevation: 6,
+    padding: 16,
+    marginHorizontal: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  commitmentCard: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+  overviewCardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    marginBottom: 12,
   },
-  commitmentLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    flex: 1,
-  },
-  commitmentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  overviewIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 16,
+    marginRight: 10,
   },
-  commitmentInfo: {
+  overviewCardLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontFamily: 'Cairo',
     flex: 1,
+  },
+  overviewCardValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+    marginBottom: 12,
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontFamily: 'Cairo',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontFamily: 'Cairo',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E2E8F0',
+  },
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryStatValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+  },
+  summaryStatLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontFamily: 'Cairo',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  summaryStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E2E8F0',
+  },
+  activityList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  lastActivityItem: {
+    borderBottomWidth: 0,
+  },
+  activityLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  activityDetails: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+    marginBottom: 4,
+  },
+  activityMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activityEntity: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo',
+  },
+  activityDot: {
+    fontSize: 12,
+    color: '#CBD5E1',
+    marginHorizontal: 6,
+  },
+  activityDate: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo',
+  },
+  activityRight: {
     alignItems: 'flex-end',
   },
-  commitmentTitle: {
-    fontSize: 17,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Medium',
-    marginBottom: 6,
-    textAlign: 'right',
-  },
-  commitmentEntity: {
-    fontSize: 14,
-    color: '#4B5563',
-    fontFamily: 'Cairo-Medium',
-    marginBottom: 3,
-    textAlign: 'right',
-  },
-  commitmentDate: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-  },
-  commitmentMeta: {
-    alignItems: 'flex-start',
-  },
-  daysLeft: {
-    fontSize: 12,
-    fontFamily: 'Cairo-Regular',
-    marginTop: 5,
-    textAlign: 'right',
-  },
-  commitmentRight: {
-    alignItems: 'flex-start',
-  },
-  commitmentAmount: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Cairo-Bold',
-    marginBottom: 6,
-    textAlign: 'right',
+  activityAmount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
+    marginBottom: 4,
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
   },
-  statusText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'center',
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Cairo',
   },
-  statsContainer: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-    marginHorizontal: 5,
-    elevation: 4,
+  insightsCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  statIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  oldStatValue: {
-    fontSize: 19,
-    color: '#1F2937',
-    fontWeight: 'bold',
-    fontFamily: 'Cairo-Bold',
-    textAlign: 'center',
-  },
-  overviewSection: {
-    paddingHorizontal: 20,
-    marginTop: 28,
-  },
-  progressCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    elevation: 12,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    marginBottom: 20,
-  },
-  progressCardGradient: {
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  progressHeader: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  progressHeaderLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  progressIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(30, 64, 175, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
-  },
-  progressTitle: {
-    fontSize: 18,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    textAlign: 'right',
-  },
-  progressSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  moreButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(107, 114, 128, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  enhancedProgressContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    gap: 20,
-  },
-  circularProgressWrapper: {
-    alignItems: 'center',
-  },
-  enhancedProgressRing: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    borderWidth: 6,
-    borderColor: '#E5E7EB',
-    borderTopColor: '#1E40AF',
-    borderRightColor: '#10B981',
-    borderBottomColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    transform: [{ rotate: '-90deg' }],
-  },
-  progressCenter: {
-    alignItems: 'center',
-    transform: [{ rotate: '90deg' }],
-  },
-  progressMainValue: {
-    fontSize: 22,
-    color: '#1E40AF',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-  },
-  progressMainLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
-    marginTop: 4,
-  },
-  progressStats: {
-    flex: 1,
-    gap: 12,
-  },
-  progressStatItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-  statContent: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  statTitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  statValue: {
-    fontSize: 16,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  statPercentage: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-    marginTop: 1,
-  },
-  quickStatsContainer: {
-    flexDirection: 'row-reverse',
-    gap: 10,
-  },
-  quickStatCard: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
+    elevation: 2,
   },
-  statCardGradient: {
+  insightGradient: {
+    flexDirection: 'row',
     padding: 16,
     alignItems: 'center',
-    minHeight: 130,
-    justifyContent: 'space-between',
   },
-  statCardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  insightIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginRight: 16,
   },
-  statCardNumber: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    fontFamily: 'Cairo-Bold',
-    fontWeight: 'bold',
+  insightContent: {
+    flex: 1,
+  },
+  insightTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    fontFamily: 'Cairo',
     marginBottom: 4,
   },
-  statCardLabel: {
+  insightDescription: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'center',
-    marginBottom: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo',
+    lineHeight: 20,
+    marginBottom: 8,
   },
-  statCardBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgeLabel: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'center',
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  summaryRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
+  insightAction: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
   },
-  summaryLabel: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'right',
-  },
-  summaryValue: {
-    fontSize: 15,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'left',
-  },
-  summaryLabelBold: {
-    fontSize: 17,
-    color: '#1F2937',
-    fontFamily: 'Cairo-Bold',
-    textAlign: 'right',
-  },
-  summaryValueBold: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    fontFamily: 'Cairo-Bold',
-    textAlign: 'left',
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 8,
+  insightActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B5CF6',
+    fontFamily: 'Cairo',
+    marginRight: 4,
   },
 });
+
+export default DashboardScreen;
