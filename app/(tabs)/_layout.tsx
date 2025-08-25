@@ -1,92 +1,75 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { useTheme } from '../../hooks/useTheme';
-import { useTranslation } from '../../hooks/useTranslation';
-import { useLayout } from '../../hooks/useLayout';
-import { LayoutDashboard, CreditCard, TrendingUp, Bell, UserCircle } from 'lucide-react-native';
 import { Platform } from 'react-native';
+import { 
+  Home, 
+  CreditCard, 
+  BarChart3, 
+  Bell
+} from 'lucide-react-native';
 
 export default function TabLayout() {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const { isRTL } = useLayout();
-
-  // Define screens once, then order them per direction so Home sits at the start edge
-  const screens = [
-    {
-      name: 'index',
-      title: t('dashboard'),
-      icon: (color: string, size: number) => <LayoutDashboard size={size - 2} color={color} />,
-    },
-    {
-      name: 'operations',
-      title: t('operations'),
-      icon: (color: string, size: number) => <CreditCard size={size - 2} color={color} />,
-    },
-    {
-      name: 'analytics',
-      title: t('analytics'),
-      icon: (color: string, size: number) => <TrendingUp size={size - 2} color={color} />,
-    },
-    {
-      name: 'notifications',
-      title: t('notifications'),
-      icon: (color: string, size: number) => <Bell size={size - 2} color={color} />,
-    },
-    {
-      name: 'settings',
-      title: t('settings'),
-      icon: (color: string, size: number) => <UserCircle size={size - 2} color={color} />,
-    },
-  ];
-
-  const ordered = isRTL ? [...screens].reverse() : screens;
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: '#1E40AF',
+        tabBarInactiveTintColor: '#6B7280',
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 90 : 70,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-          paddingTop: 8,
+          borderTopColor: '#E5E7EB',
+          height: Platform.OS === 'ios' ? 85 : 65,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+          paddingTop: 10,
+          elevation: 8,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 15,
-          writingDirection: isRTL ? 'rtl' : 'ltr',
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          overflow: 'hidden',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '700',
-          fontFamily: 'Cairo-Bold',
-          marginTop: 2,
-          writingDirection: isRTL ? 'rtl' : 'ltr',
+          fontSize: 11,
+          fontFamily: 'Cairo',
+          fontWeight: '600',
         },
-        tabBarIconStyle: {
-          marginTop: 4,
-        },
-      }}
-    >
-      {ordered.map((s) => (
-        <Tabs.Screen
-          key={s.name}
-          name={s.name as any}
-          options={{
-            title: s.title,
-            tabBarIcon: ({ color, size }) => s.icon(color, size),
-          }}
-        />
-      ))}
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'الرئيسية',
+          tabBarIcon: ({ color, focused }) => (
+            <Home size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="commitments"
+        options={{
+          title: 'الالتزامات',
+          tabBarIcon: ({ color, focused }) => (
+            <CreditCard size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'التحليلات',
+          tabBarIcon: ({ color, focused }) => (
+            <BarChart3 size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: 'التنبيهات',
+          tabBarIcon: ({ color, focused }) => (
+            <Bell size={24} color={color} strokeWidth={focused ? 2.5 : 2} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
