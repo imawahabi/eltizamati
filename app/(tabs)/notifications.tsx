@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  StatusBar,
   I18nManager,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -110,13 +111,22 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>التنبيهات</Text>
-        <TouchableOpacity style={styles.settingsButton}>
-          <Settings size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
+      
+      {/* Compact Header */}
+      <LinearGradient colors={['#1E40AF', '#3B82F6']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>التنبيهات والإشعارات</Text>
+          <Text style={styles.headerSubtitle}>تابع جميع تنبيهاتك المالية</Text>
+        </View>
+        
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.settingsButton}>
+            <Settings size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Filter Tabs */}
@@ -205,7 +215,7 @@ export default function NotificationsScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -215,25 +225,43 @@ function createStyles(colors: any) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    scrollContainer: {
-      flex: 1,
-      paddingHorizontal: 16,
-    },
     header: {
-      flexDirection: 'row-reverse',
+      paddingTop: 50,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
+      flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 20,
-      paddingHorizontal: 16,
     },
-    title: {
-      fontSize: 24,
+    headerContent: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      color: '#FFFFFF',
       fontFamily: 'Cairo-Bold',
-      color: colors.text,
-      textAlign: 'right',
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: '#FFFFFF',
+      fontFamily: 'Cairo-Regular',
+      textAlign: 'center',
+      opacity: 0.9,
+    },
+    headerActions: {
+      position: 'absolute',
+      right: 20,
+      top: 50,
     },
     settingsButton: {
       padding: 8,
+    },
+    scrollContainer: {
+      flex: 1,
+      paddingHorizontal: 20,
     },
     filterContainer: {
       flexDirection: 'row-reverse',

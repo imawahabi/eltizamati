@@ -1,10 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, FlatList } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  FlatList,
+  TouchableOpacity,
+  StatusBar,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLayout } from '@/hooks/useLayout';
-import { ArrowLeft, Plus, Building, CreditCard, Users, Edit, Trash2, Search } from 'lucide-react-native';
+import { ArrowLeft, Plus, Building, CreditCard, Users, Edit, Trash2, Search, Eye, EyeOff } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -161,18 +171,18 @@ export default function ManageEntitiesScreen() {
           </View>
         </View>
         <View style={styles.entityActions}>
-          <Button
-            variant="ghost"
-            size="small"
-            icon={<Edit size={16} color={colors.textSecondary} />}
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => {/* TODO: Edit functionality */}}
-          />
-          <Button
-            variant="ghost"
-            size="small"
-            icon={<Trash2 size={16} color={colors.error} />}
+          >
+            <Edit size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => handleDeleteEntity(item.id)}
-          />
+          >
+            <Trash2 size={16} color={colors.error} />
+          </TouchableOpacity>
         </View>
       </View>
       
@@ -187,23 +197,88 @@ export default function ManageEntitiesScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Button
-          variant="ghost"
-          size="small"
-          icon={<ArrowLeft size={24} color={colors.text} style={{ transform: [{ scaleX: getIconDirection() }] }} />}
-          onPress={() => router.back()}
-          style={styles.backButton}
-        />
-        <Text style={[styles.title, { textAlign }]}>{t('manageEntities')}</Text>
-        <Button
-          variant="ghost"
-          size="small"
-          icon={<Plus size={24} color={colors.primary} />}
-          onPress={() => setShowAddForm(!showAddForm)}
-        />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
+      
+      {/* Professional Header */}
+      <LinearGradient colors={['#1E40AF', '#3B82F6']} style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>إدارة الجهات</Text>
+          <Text style={styles.headerSubtitle}>إدارة البنوك والشركات والأشخاص</Text>
+        </View>
+        
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={20} color="#FFFFFF" style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.searchButton}>
+            <Search size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowAddForm(!showAddForm)}
+          >
+            <Plus size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Filters Section */}
+      <View style={styles.filtersContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+          <TouchableOpacity
+            style={[styles.filterButton, filterType === 'all' && styles.filterButtonActive]}
+            onPress={() => setFilterType('all')}
+          >
+            <Text style={[styles.filterText, filterType === 'all' && styles.filterTextActive]}>
+              الكل
+            </Text>
+            <View style={[styles.filterBadge, filterType === 'all' && styles.filterBadgeActive]}>
+              <Text style={[styles.filterBadgeText, filterType === 'all' && styles.filterBadgeTextActive]}>
+                {entities.length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.filterButton, filterType === 'bank' && styles.filterButtonActive]}
+            onPress={() => setFilterType('bank')}
+          >
+            <Text style={[styles.filterText, filterType === 'bank' && styles.filterTextActive]}>البنوك</Text>
+            <View style={[styles.filterBadge, filterType === 'bank' && styles.filterBadgeActive]}>
+              <Text style={[styles.filterBadgeText, filterType === 'bank' && styles.filterBadgeTextActive]}>
+                {entities.filter(e => e.type === 'bank').length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.filterButton, filterType === 'bnpl' && styles.filterButtonActive]}
+            onPress={() => setFilterType('bnpl')}
+          >
+            <Text style={[styles.filterText, filterType === 'bnpl' && styles.filterTextActive]}>شركات التقسيط</Text>
+            <View style={[styles.filterBadge, filterType === 'bnpl' && styles.filterBadgeActive]}>
+              <Text style={[styles.filterBadgeText, filterType === 'bnpl' && styles.filterBadgeTextActive]}>
+                {entities.filter(e => e.type === 'bnpl').length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.filterButton, filterType === 'personal' && styles.filterButtonActive]}
+            onPress={() => setFilterType('personal')}
+          >
+            <Text style={[styles.filterText, filterType === 'personal' && styles.filterTextActive]}>أشخاص</Text>
+            <View style={[styles.filterBadge, filterType === 'personal' && styles.filterBadgeActive]}>
+              <Text style={[styles.filterBadgeText, filterType === 'personal' && styles.filterBadgeTextActive]}>
+                {entities.filter(e => e.type === 'personal').length}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -217,13 +292,10 @@ export default function ManageEntitiesScreen() {
             style={styles.searchInput}
           />
           
-          <Select
-            label={t('filterByType')}
-            value={filterType}
-            onValueChange={setFilterType}
-            options={entityTypes}
-            style={styles.filterSelect}
-          />
+          <View style={styles.filterSelect}>
+            <Text style={styles.filterLabel}>{t('filterByType')}</Text>
+            {/* Filter select will be implemented with custom component */}
+          </View>
         </Card>
 
         {/* Add Entity Form */}
@@ -240,13 +312,10 @@ export default function ManageEntitiesScreen() {
               required
             />
 
-            <Select
-              label={t('entityType')}
-              value={newEntity.type}
-              onValueChange={(value) => setNewEntity(prev => ({ ...prev, type: value as Entity['type'] }))}
-              options={newEntityTypes}
-              required
-            />
+            <View style={styles.typeSelector}>
+              <Text style={styles.typeLabel}>{t('entityType')}</Text>
+              {/* Type selector will be implemented with custom component */}
+            </View>
 
             <Input
               label={t('contactInfo')}
@@ -307,7 +376,7 @@ export default function ManageEntitiesScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -315,31 +384,116 @@ function createStyles(colors: any, isRTL: boolean) {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: '#F8FAFC',
     },
     header: {
-      flexDirection: isRTL ? 'row-reverse' : 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+      paddingTop: 50,
       paddingHorizontal: 20,
-      paddingVertical: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      backgroundColor: colors.surface,
+      paddingBottom: 20,
+      borderBottomLeftRadius: 25,
+      borderBottomRightRadius: 25,
+    },
+    headerContent: {
+      marginBottom: 15,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      fontFamily: 'Cairo',
+      textAlign: 'right',
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: '#E0E7FF',
+      fontFamily: 'Cairo',
+      textAlign: 'right',
+      marginTop: 4,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
     },
     backButton: {
-      marginRight: isRTL ? 0 : 16,
-      marginLeft: isRTL ? 16 : 0,
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
-    title: {
-      fontSize: 24,
-      fontFamily: 'Cairo-Bold',
-      color: colors.text,
-      flex: 1,
+    searchButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    filtersContainer: {
+      paddingVertical: 15,
+      backgroundColor: '#FFFFFF',
+      borderBottomWidth: 1,
+      borderBottomColor: '#E5E7EB',
+    },
+    filtersScroll: {
+      paddingHorizontal: 20,
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      marginRight: 12,
+      borderRadius: 20,
+      backgroundColor: '#F3F4F6',
+      gap: 8,
+    },
+    filterButtonActive: {
+      backgroundColor: '#1E40AF',
+    },
+    filterText: {
+      fontSize: 14,
+      color: '#6B7280',
+      fontFamily: 'Cairo',
+      fontWeight: '600',
+    },
+    filterTextActive: {
+      color: '#FFFFFF',
+    },
+    filterBadge: {
+      backgroundColor: '#E5E7EB',
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      minWidth: 24,
+      alignItems: 'center',
+    },
+    filterBadgeActive: {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    filterBadgeText: {
+      fontSize: 12,
+      color: '#6B7280',
+      fontFamily: 'Cairo',
+      fontWeight: 'bold',
+    },
+    filterBadgeTextActive: {
+      color: '#FFFFFF',
     },
     scrollContainer: {
       flex: 1,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
+      paddingTop: 20,
     },
     filterCard: {
       marginVertical: 8,
@@ -354,11 +508,11 @@ function createStyles(colors: any, isRTL: boolean) {
       marginVertical: 8,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontFamily: 'Cairo-Bold',
-      color: colors.text,
+      color: '#1E293B',
       marginBottom: 16,
-      textAlign: isRTL ? 'right' : 'left',
+      textAlign: 'right',
     },
     formActions: {
       flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -376,7 +530,15 @@ function createStyles(colors: any, isRTL: boolean) {
       marginVertical: 8,
     },
     entityCard: {
-      marginBottom: 12,
+      backgroundColor: '#FFFFFF',
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
     },
     entityHeader: {
       flexDirection: isRTL ? 'row-reverse' : 'row',
@@ -410,6 +572,26 @@ function createStyles(colors: any, isRTL: boolean) {
     entityActions: {
       flexDirection: isRTL ? 'row-reverse' : 'row',
       gap: 8,
+    },
+    actionButton: {
+      padding: 8,
+      borderRadius: 8,
+      backgroundColor: '#F8FAFC',
+    },
+    filterLabel: {
+      fontSize: 14,
+      fontFamily: 'Cairo-SemiBold',
+      color: '#374151',
+      marginBottom: 8,
+    },
+    typeSelector: {
+      marginBottom: 16,
+    },
+    typeLabel: {
+      fontSize: 14,
+      fontFamily: 'Cairo-SemiBold',
+      color: '#374151',
+      marginBottom: 8,
     },
     contactInfo: {
       fontSize: 14,

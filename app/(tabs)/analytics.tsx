@@ -69,10 +69,30 @@ export default function AnalyticsScreen() {
   const daysUntilPayday = Math.ceil((paydayDay - new Date().getDate()) % 30);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>التحليلات</Text>
-      </View>
+    <View style={styles.container}>
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor="#1E40AF" 
+        translucent={false}
+        networkActivityIndicatorVisible={false}
+      />
+      
+      {/* Modern Header with Tailwind-inspired design */}
+      <LinearGradient 
+        colors={['#1E40AF', '#3B82F6']} 
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerIconContainer}>
+            <BarChart3 size={24} color="#FFFFFF" />
+          </View>
+          <Text style={styles.headerTitle}>التحليلات المالية</Text>
+          <Text style={styles.headerSubtitle}>تحليل شامل وذكي لوضعك المالي</Text>
+        </View>
+        <View style={styles.headerDecoration} />
+      </LinearGradient>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {/* Smart Insights */}
@@ -136,15 +156,21 @@ export default function AnalyticsScreen() {
             <View style={styles.trendContent}>
               <View style={styles.trendRow}>
                 <Text style={styles.trendLabel}>إجمالي الراتب</Text>
-                <Text style={styles.trendValue}>{salaryAmount.toFixed(3)} د.ك</Text>
+                <Text style={styles.trendValue}>
+                  {Math.floor(salaryAmount)}<Text style={styles.decimalPart}>.{(salaryAmount % 1).toFixed(3).slice(2)}</Text> د.ك
+                </Text>
               </View>
               <View style={styles.trendRow}>
                 <Text style={styles.trendLabel}>إجمالي الالتزامات</Text>
-                <Text style={styles.trendValue}>{commitmentsThisMonth.toFixed(3)} د.ك</Text>
+                <Text style={styles.trendValue}>
+                  {Math.floor(commitmentsThisMonth)}<Text style={styles.decimalPart}>.{(commitmentsThisMonth % 1).toFixed(3).slice(2)}</Text> د.ك
+                </Text>
               </View>
               <View style={styles.trendRow}>
                 <Text style={styles.trendLabel}>المتبقي المتوقع</Text>
-                <Text style={[styles.trendValue, { color: colors.success }]}>{projectedRemaining.toFixed(3)} د.ك</Text>
+                <Text style={[styles.trendValue, { color: colors.success }]}>
+                  {Math.floor(projectedRemaining)}<Text style={styles.decimalPart}>.{(projectedRemaining % 1).toFixed(3).slice(2)}</Text> د.ك
+                </Text>
               </View>
             </View>
           </View>
@@ -213,7 +239,7 @@ export default function AnalyticsScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -224,18 +250,54 @@ function createStyles(colors: any) {
       backgroundColor: colors.background,
     },
     header: {
-      paddingHorizontal: 16,
-      paddingVertical: 20,
+      paddingTop: 50,
+      paddingBottom: 20,
+      paddingHorizontal: 20,
     },
-    title: {
-      fontSize: 24,
+    headerContent: {
+      alignItems: 'center',
+    },
+    headerTitle: {
+      fontSize: 20,
+      color: '#FFFFFF',
       fontFamily: 'Cairo-Bold',
-      color: colors.text,
-      textAlign: 'right',
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: '#FFFFFF',
+      fontFamily: 'Cairo-Regular',
+      textAlign: 'center',
+      opacity: 0.9,
+    },
+    headerIconContainer: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    headerDecoration: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      transform: [{ translateX: 30 }, { translateY: -30 }],
+    },
+    decimalPart: {
+      fontSize: 12,
+      opacity: 0.7,
+      fontFamily: 'Cairo-Regular',
     },
     scrollContainer: {
       flex: 1,
-      paddingHorizontal: 16,
+      paddingHorizontal: 20,
     },
     insightsSection: {
       marginBottom: 24,

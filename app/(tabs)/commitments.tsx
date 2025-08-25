@@ -212,15 +212,27 @@ export default function CommitmentsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E40AF" />
+      <StatusBar 
+        barStyle="light-content" 
+        backgroundColor="#1E40AF" 
+        translucent={false}
+        networkActivityIndicatorVisible={false}
+      />
       
-      {/* Header */}
-      <LinearGradient colors={['#1E40AF', '#3B82F6']} style={styles.header}>
+      {/* Modern Header with Tailwind-inspired design */}
+      <LinearGradient 
+        colors={['#1E40AF', '#3B82F6']} 
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>الالتزامات المالية</Text>
-          <Text style={styles.headerSubtitle}>إدارة جميع التزاماتك المالية</Text>
+          <View style={styles.headerIconContainer}>
+            <CreditCard size={24} color="#FFFFFF" />
+          </View>
+          <Text style={styles.headerTitle}>الإلتزامات المالية</Text>
         </View>
-        
+        <View style={styles.headerDecoration} />
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.eyeButton}
@@ -231,15 +243,6 @@ export default function CommitmentsScreen() {
             ) : (
               <Eye size={20} color="#FFFFFF" />
             )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.searchButton}>
-            <Search size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => router.push('/add-commitment')}
-          >
-            <Plus size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -278,77 +281,50 @@ export default function CommitmentsScreen() {
         </ScrollView>
       </View>
 
-      {/* Sort Options */}
-      <View style={styles.sortContainer}>
-        <TouchableOpacity 
-          style={styles.sortButton}
-          onPress={() => setShowSortMenu(!showSortMenu)}
+
+      {/* Add Commitment FAB */}
+      <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => router.push('/add-commitment')}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={['#1E40AF', '#3B82F6']}
+          style={styles.fabGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <ArrowUpDown size={16} color="#6B7280" />
-          <Text style={styles.sortButtonText}>
-            ترتيب حسب: {sortOptions.find(s => s.key === sortBy)?.label}
-          </Text>
-          <ChevronDown size={16} color="#6B7280" />
-        </TouchableOpacity>
-        
-        {showSortMenu && (
-          <View style={styles.sortMenu}>
-            {sortOptions.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.sortMenuItem,
-                  sortBy === option.key && styles.sortMenuItemActive
-                ]}
-                onPress={() => {
-                  setSortBy(option.key);
-                  setShowSortMenu(false);
-                }}
-              >
-                <Text style={[
-                  styles.sortMenuText,
-                  sortBy === option.key && styles.sortMenuTextActive
-                ]}>
-                  {option.label}
-                </Text>
-                {sortBy === option.key && (
-                  <View style={styles.sortCheckmark}>
-                    <CheckCircle size={16} color="#1E40AF" />
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
+          <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
+        </LinearGradient>
+      </TouchableOpacity>
 
       {/* Commitments List */}
-      <ScrollView style={styles.commitmentsList} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.commitmentsList} showsVerticalScrollIndicator={false} contentContainerStyle={styles.commitmentsContent}>
         {filteredCommitments.map((commitment) => (
           <TouchableOpacity key={commitment.id} style={styles.commitmentCard}>
             <View style={styles.commitmentHeader}>
-              <View style={styles.commitmentIconContainer}>
-                {getCommitmentIcon(commitment.type)}
-              </View>
-              
-              <View style={styles.commitmentInfo}>
-                <Text style={styles.commitmentName}>{commitment.name}</Text>
-                <Text style={styles.commitmentEntity}>{commitment.entity}</Text>
-                <View style={styles.commitmentMeta}>
-                  <Text style={styles.metaText}>
-                    {commitment.apr > 0 ? `${commitment.apr}% سنوياً` : 'بدون فوائد'}
-                  </Text>
-                  <Text style={styles.metaText}>•</Text>
-                  <Text style={styles.metaText}>{commitment.category}</Text>
-                </View>
-              </View>
-
               <View style={styles.commitmentStatus}>
                 {getStatusIcon(commitment.status)}
                 <Text style={styles.statusText}>
                   {commitment.status === 'active' ? 'نشط' : 
                    commitment.status === 'completed' ? 'مكتمل' : 'متأخر'}
                 </Text>
+              </View>
+
+              <View style={styles.commitmentInfo}>
+                <Text style={styles.commitmentName}>{commitment.name}</Text>
+                <Text style={styles.commitmentEntity}>{commitment.entity}</Text>
+                <View style={styles.commitmentMeta}>
+                  <Text style={styles.metaText}>{commitment.category}</Text>
+                  <Text style={styles.metaText}>•</Text>
+                  <Text style={styles.metaText}>
+                    {commitment.apr > 0 ? `${commitment.apr}% سنوياً` : 'بدون فوائد'}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.commitmentIconContainer}>
+                {getCommitmentIcon(commitment.type)}
               </View>
             </View>
 
@@ -416,319 +392,363 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
+    paddingHorizontal: 24,
+    paddingBottom: 10,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    position: 'relative',
+    overflow: 'hidden',
   },
   headerContent: {
-    marginBottom: 15,
+    alignItems: 'center',
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'Cairo',
-    textAlign: 'right',
+    fontFamily: 'Cairo-Bold',
+    textAlign: 'center',
+    marginBottom: 6,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#E0E7FF',
-    fontFamily: 'Cairo',
-    textAlign: 'right',
-    marginTop: 4,
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontFamily: 'Cairo-Regular',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  headerIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  headerDecoration: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   headerActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  searchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    top: 60,
+    right: 24,
   },
   eyeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   filtersContainer: {
-    paddingVertical: 15,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F1F5F9',
+    marginTop: -15,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   filtersScroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   filterButton: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 12,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 20,
+    paddingVertical: 5,
+    marginLeft: 12,
+    borderRadius: 25,
+    backgroundColor: '#F8FAFC',
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   filterButtonActive: {
     backgroundColor: '#1E40AF',
+    borderColor: '#1E40AF',
+    elevation: 4,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   filterText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
-    fontWeight: '600',
+    fontSize: 15,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
   },
   filterTextActive: {
     color: '#FFFFFF',
   },
   filterBadge: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    minWidth: 24,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 50,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    minWidth: 30,
     alignItems: 'center',
   },
   filterBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
   filterBadgeText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
-    fontWeight: 'bold',
+    fontSize: 13,
+    color: '#64748B',
+    fontFamily: 'Cairo-Bold',
   },
   filterBadgeTextActive: {
     color: '#FFFFFF',
   },
   commitmentsList: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+  },
+  commitmentsContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 100,
   },
   commitmentCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   commitmentHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   commitmentIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginLeft: 16,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
   },
   commitmentInfo: {
     flex: 1,
+    alignItems: 'flex-end',
   },
   commitmentName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
-    fontFamily: 'Cairo',
-    textAlign: 'right',
-    marginBottom: 4,
-  },
-  commitmentEntity: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
+    fontSize: 18,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
     textAlign: 'right',
     marginBottom: 6,
   },
+  commitmentEntity: {
+    fontSize: 15,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
+    textAlign: 'right',
+    marginBottom: 8,
+  },
   commitmentMeta: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 8,
+    justifyContent: 'flex-start',
+    gap: 10,
   },
   metaText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontFamily: 'Cairo',
+    fontSize: 13,
+    color: '#94A3B8',
+    fontFamily: 'Cairo-Regular',
   },
   commitmentStatus: {
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   statusText: {
-    fontSize: 10,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
-    fontWeight: '600',
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
   },
   commitmentDetails: {
-    gap: 12,
+    gap: 16,
   },
   amountSection: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     backgroundColor: '#F8FAFC',
-    borderRadius: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   amountLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
+    fontSize: 15,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
   },
   amountValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    fontFamily: 'Cairo',
+    fontSize: 20,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
   },
   progressSection: {
-    gap: 8,
+    gap: 10,
   },
   progressHeader: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   progressLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
+    textAlign: 'right',
   },
   progressPercentage: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1F2937',
-    fontFamily: 'Cairo',
+    fontSize: 14,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
   },
   progressBar: {
-    height: 6,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 3,
+    height: 8,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
+    alignSelf: 'flex-end',
   },
   nextPayment: {
-    flexDirection: 'row',
+    flexDirection: 'row-reverse',
     alignItems: 'center',
-    gap: 8,
-    paddingTop: 8,
+    gap: 10,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: '#F1F5F9',
   },
   nextPaymentText: {
     flex: 1,
-    fontSize: 12,
-    color: '#6B7280',
-    fontFamily: 'Cairo',
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
     textAlign: 'right',
   },
   urgencyIndicator: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   urgencyText: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#FFFFFF',
-    fontFamily: 'Cairo',
-    fontWeight: '600',
+    fontFamily: 'Cairo-Bold',
   },
   sortContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
     position: 'relative',
   },
   sortButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    gap: 8,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   sortButtonText: {
     flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    fontFamily: 'Cairo',
-    fontWeight: '500',
+    fontSize: 15,
+    color: '#334155',
+    fontFamily: 'Cairo-Medium',
     textAlign: 'right',
   },
   sortMenu: {
     position: 'absolute',
-    top: 60,
-    left: 20,
-    right: 20,
+    top: 70,
+    left: 24,
+    right: 24,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    borderRadius: 16,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
     zIndex: 1000,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   sortMenuItem: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
   },
   sortMenuItemActive: {
     backgroundColor: '#F0F9FF',
   },
   sortMenuText: {
     flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    fontFamily: 'Cairo',
+    fontSize: 15,
+    color: '#334155',
+    fontFamily: 'Cairo-Medium',
     textAlign: 'right',
   },
   sortMenuTextActive: {
     color: '#1E40AF',
-    fontWeight: '600',
+    fontFamily: 'Cairo-Bold',
   },
   sortCheckmark: {
-    marginLeft: 8,
+    marginLeft: 10,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 24,
+    zIndex: 1000,
+    elevation: 8,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+  },
+  fabGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

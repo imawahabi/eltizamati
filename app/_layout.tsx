@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Text, TextInput } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { useFonts, Cairo_400Regular, Cairo_700Bold, Cairo_600SemiBold } from '@expo-google-fonts/cairo';
+import { useFonts, Cairo_400Regular, Cairo_700Bold, Cairo_600SemiBold, Cairo_500Medium } from '@expo-google-fonts/cairo';
 import * as SplashScreen from 'expo-splash-screen';
 import { I18nManager } from 'react-native';
 import { initializeDatabase } from '@/lib/database';
@@ -18,6 +19,7 @@ export default function RootLayout() {
   
   const [fontsLoaded, fontError] = useFonts({
     'Cairo-Regular': Cairo_400Regular,
+    'Cairo-Medium': Cairo_500Medium,
     'Cairo-SemiBold': Cairo_600SemiBold,
     'Cairo-Bold': Cairo_700Bold,
   });
