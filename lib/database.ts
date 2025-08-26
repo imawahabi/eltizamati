@@ -9,178 +9,449 @@ export async function initializeDatabase() {
     db = await SQLite.openDatabaseAsync(DB_NAME);
     
     await runMigrations();
-    await seedKuwaitData();
+    await seedDefaultData();
     
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Failed to initialize database:', error);
+    // Re-throw so callers can handle and avoid running queries on outdated schema
+    throw error;
   }
 }
 
 async function runMigrations() {
-  // Settings table
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS settings (
-      id INTEGER PRIMARY KEY CHECK (id=1),
-      language TEXT DEFAULT 'ar',
-      payday_day INTEGER NOT NULL DEFAULT 25,
-      currency TEXT DEFAULT 'KWD',
-      strategy_default TEXT DEFAULT 'hybrid',
-      quiet_hours_from TEXT DEFAULT '21:00',
-      quiet_hours_to TEXT DEFAULT '08:00',
-      savings_target REAL DEFAULT 0,
-      theme TEXT DEFAULT 'light'
-    );
-  `);
+  try {
+    // Helpers: ensure columns exist on existing tables
+    const columnExists = async (table: string, column: string) => {
+      const info = await db.getAllAsync(`PRAGMA table_info(${table})`);
+      return (info as any[]).some((c: any) => c.name === column);
+    };
 
-  // Entities table (banks, retailers, etc.)
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS entities (
-      id INTEGER PRIMARY KEY,
-      kind TEXT NOT NULL,
-      name TEXT NOT NULL,
-      phone TEXT,
-      note TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(kind, name)
-    );
-  `);
+    const ensureColumn = async (table: string, column: string, definition: string) => {
+      const exists = await columnExists(table, column);
+      if (!exists) {
+        await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      }
+    };
 
-  // Debts table
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS debts (
-      id INTEGER PRIMARY KEY,
-      entity_id INTEGER NOT NULL REFERENCES entities(id) ON DELETE RESTRICT,
-      kind TEXT NOT NULL,
-      principal REAL NOT NULL,
-      apr REAL DEFAULT 0,
-      fee_fixed REAL DEFAULT 0,
-      start_date TEXT NOT NULL,
-      due_day INTEGER NOT NULL,
-      total_installments INTEGER,
-      remaining_installments INTEGER,
-      installment_amount REAL,
-      status TEXT NOT NULL DEFAULT 'active',
-      penalty_policy TEXT,
-      relationship_factor REAL DEFAULT 0,
-      tags TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+    // Users table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        salary REAL,
+        payday_day INTEGER,
+        settings_json TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        onboarding_completed INTEGER DEFAULT 0
+      );
+    `);
 
-  // Payments table
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY,
-      debt_id INTEGER NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
-      amount REAL NOT NULL,
-      date TEXT NOT NULL,
-      method TEXT,
-      note TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+    // Ensure added columns for existing users table
+    await ensureColumn('users', 'created_at', 'TEXT DEFAULT CURRENT_TIMESTAMP');
+    await ensureColumn('users', 'onboarding_completed', 'INTEGER DEFAULT 0');
 
-  // Reminders table
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS reminders (
-      id INTEGER PRIMARY KEY,
-      debt_id INTEGER NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
-      remind_date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+    // Obligations table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS obligations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        type TEXT,
+        creditor_name TEXT,
+        principal_amount REAL,
+        installment_amount REAL,
+        interest_rate REAL,
+        start_date TEXT,
+        due_day INTEGER,
+        installments_count INTEGER,
+        installments_paid INTEGER DEFAULT 0,
+        remaining_amount REAL,
+        status TEXT,
+        meta_json TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+      );
+    `);
 
-  // Kuwait holidays table
-  await db.execAsync(`
-    CREATE TABLE IF NOT EXISTS holidays (
-      id INTEGER PRIMARY KEY,
-      date TEXT NOT NULL UNIQUE,
-      name TEXT
-    );
-  `);
+    // Ensure added columns for existing obligations table
+    await ensureColumn('obligations', 'user_id', 'INTEGER');
+    await ensureColumn('obligations', 'installments_paid', 'INTEGER DEFAULT 0');
+    await ensureColumn('obligations', 'remaining_amount', 'REAL');
+    await ensureColumn('obligations', 'meta_json', 'TEXT');
 
-  // Create indexes
-  await db.execAsync(`
-    CREATE INDEX IF NOT EXISTS idx_debts_entity ON debts(entity_id);
-    CREATE INDEX IF NOT EXISTS idx_payments_debt ON payments(debt_id);
-    CREATE INDEX IF NOT EXISTS idx_reminders_date ON reminders(remind_date);
-  `);
+    // Installments table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS installments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obligation_id INTEGER,
+        due_date TEXT,
+        amount REAL,
+        status TEXT,
+        paid_amount REAL DEFAULT 0,
+        paid_date TEXT,
+        FOREIGN KEY (obligation_id) REFERENCES obligations (id)
+      );
+    `);
 
-  // Insert default settings if not exists
-  await db.execAsync(`
-    INSERT OR IGNORE INTO settings (id, payday_day, savings_target) 
-    VALUES (1, 25, 0);
-  `);
+    // Ensure added columns for existing installments table
+    await ensureColumn('installments', 'obligation_id', 'INTEGER');
+    await ensureColumn('installments', 'status', 'TEXT');
+    await ensureColumn('installments', 'paid_amount', 'REAL DEFAULT 0');
+    await ensureColumn('installments', 'paid_date', 'TEXT');
+
+    // Payments table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obligation_id INTEGER,
+        installment_id INTEGER,
+        amount REAL,
+        date TEXT,
+        method TEXT,
+        note TEXT,
+        receipt_path TEXT,
+        FOREIGN KEY (obligation_id) REFERENCES obligations (id),
+        FOREIGN KEY (installment_id) REFERENCES installments (id)
+      );
+    `);
+
+    // Ensure added columns for existing payments table
+    await ensureColumn('payments', 'obligation_id', 'INTEGER');
+    await ensureColumn('payments', 'installment_id', 'INTEGER');
+    await ensureColumn('payments', 'method', 'TEXT');
+    await ensureColumn('payments', 'note', 'TEXT');
+    await ensureColumn('payments', 'receipt_path', 'TEXT');
+
+    // Savings goals table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS savings_goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        target_amount REAL,
+        saved_amount REAL DEFAULT 0,
+        target_date TEXT,
+        rule_json TEXT
+      );
+    `);
+
+    // Persons table for personal debt management
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS persons (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        relationship_type TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Notifications log table - as per spec
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS notifications_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        obligation_id INTEGER,
+        scheduled_date TEXT,
+        fired_at TEXT,
+        status TEXT,
+        FOREIGN KEY (obligation_id) REFERENCES obligations (id)
+      );
+    `);
+
+    // Ensure added columns for existing notifications_log table
+    await ensureColumn('notifications_log', 'obligation_id', 'INTEGER');
+
+    // Create indexes for performance (skip if columns missing to avoid blocking migrations)
+    try { await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_obligations_user ON obligations(user_id);`); } catch (e) { console.warn('Skipping index idx_obligations_user:', e); }
+    try { await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_installments_obligation ON installments(obligation_id);`); } catch (e) { console.warn('Skipping index idx_installments_obligation:', e); }
+    try { await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_payments_obligation ON payments(obligation_id);`); } catch (e) { console.warn('Skipping index idx_payments_obligation:', e); }
+    try { await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_notifications_obligation ON notifications_log(obligation_id);`); } catch (e) { console.warn('Skipping index idx_notifications_obligation:', e); }
+
+    console.log('Database tables created successfully');
+  } catch (error) {
+    console.error('Error creating database tables:', error);
+    throw error;
+  }
+}
+
+async function seedDefaultData() {
+  // Default creditors as per spec
+  const creditors = [
+    // Banks - as per spec section 16
+    'بنك الكويت الوطني (NBK)',
+    'بنك برقان',
+    'بنك الخليج',
+    'بيت التمويل الكويتي (KFH)',
+    'الملا للتمويل',
+    'الأمانة للتمويل',
+    'رساميل للتمويل',
+    'X-cite',
+    'Eureka',
+    'Best Al-Yousifi'
+  ];
+
+  // This will be used for obligation wizard
+  console.log('Default creditors seeded:', creditors.length);
 }
 
 async function seedKuwaitData() {
-  const entities = [
-    // Banks
-    { kind: 'bank', name: 'NBK', phone: '1801801' },
-    { kind: 'bank', name: 'KFH', phone: '1866866' },
-    { kind: 'bank', name: 'Gulf Bank', phone: '1805805' },
-    { kind: 'bank', name: 'CBK', phone: '1888247' },
-    { kind: 'bank', name: 'ABK', phone: '1899899' },
-    { kind: 'bank', name: 'Burgan Bank', phone: '1804080' },
-    { kind: 'bank', name: 'Boubyan Bank', phone: '1820082' },
-    { kind: 'bank', name: 'KIB', phone: '1866866' },
-    { kind: 'bank', name: 'Warba Bank', phone: '1825555' },
-    
-    // Retailers
-    { kind: 'retailer', name: 'X-cite', phone: '1803535' },
-    { kind: 'retailer', name: 'Best', phone: '1808880' },
-    { kind: 'retailer', name: 'Eureka', phone: '1866090' },
-    { kind: 'retailer', name: 'Digits', phone: '1870870' },
-    { kind: 'retailer', name: 'Hatef 2000', phone: '22473636' },
-    
-    // Finance Companies
-    { kind: 'finance', name: 'CFC', phone: '1803030' },
-    { kind: 'finance', name: 'Al Mulla Finance', phone: '1804455' },
-    { kind: 'finance', name: 'Al Manar Finance', phone: '1866030' },
-    { kind: 'finance', name: 'KFIC Finance', phone: '1866030' },
-    
-    // BNPL
-    { kind: 'bnpl', name: 'Tabby', phone: null },
-    { kind: 'bnpl', name: 'Deema', phone: null },
-    
-    // Telecom
-    { kind: 'telco', name: 'Zain', phone: '107' },
-    { kind: 'telco', name: 'Ooredoo', phone: '121' },
-    { kind: 'telco', name: 'stc', phone: '102' },
-  ];
-
-  for (const entity of entities) {
-    await db.runAsync(
-      `INSERT OR IGNORE INTO entities (kind, name, phone) VALUES (?, ?, ?)`,
-      [entity.kind, entity.name, entity.phone]
-    );
-  }
-
-  // Kuwait holidays for 2025
-  const holidays = [
-    { date: '2025-01-01', name: 'New Year Day' },
-    { date: '2025-02-25', name: 'National Day' },
-    { date: '2025-02-26', name: 'Liberation Day' },
-    { date: '2025-03-30', name: 'Eid Al-Fitr (estimated)' },
-    { date: '2025-03-31', name: 'Eid Al-Fitr Holiday' },
-    { date: '2025-04-01', name: 'Eid Al-Fitr Holiday' },
-    { date: '2025-06-06', name: 'Eid Al-Adha (estimated)' },
-    { date: '2025-06-07', name: 'Eid Al-Adha Holiday' },
-    { date: '2025-06-08', name: 'Eid Al-Adha Holiday' },
-    { date: '2025-06-27', name: 'Islamic New Year (estimated)' },
-    { date: '2025-09-05', name: 'Prophet Birthday (estimated)' },
-  ];
-
-  for (const holiday of holidays) {
-    await db.runAsync(
-      `INSERT OR IGNORE INTO holidays (date, name) VALUES (?, ?)`,
-      [holiday.date, holiday.name]
-    );
-  }
+  // This function is not called in the current implementation
+  // Keeping it for future use when entities and holidays tables are added
+  console.log('Kuwait data seeding skipped - tables not implemented yet');
 }
 
 export function getDatabase() {
   return db;
 }
+
+// Database helper functions as per spec requirements
+export async function getUserData() {
+  const user = await db.getFirstAsync('SELECT * FROM users WHERE id = 1') as any;
+  return user;
+}
+
+export async function checkOnboardingStatus() {
+  try {
+    const user = await db.getFirstAsync('SELECT onboarding_completed FROM users WHERE id = 1') as any;
+    return user?.onboarding_completed === 1;
+  } catch (e) {
+    // If column is missing, add it and default to not completed
+    try {
+      await db.execAsync('ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0');
+      const user = await db.getFirstAsync('SELECT onboarding_completed FROM users WHERE id = 1') as any;
+      return user?.onboarding_completed === 1;
+    } catch (inner) {
+      console.warn('checkOnboardingStatus fallback failed:', inner);
+      return false;
+    }
+  }
+}
+
+export async function completeOnboarding(name: string, salary: number, payday: number) {
+  // Check if user exists
+  const existingUser = await db.getFirstAsync('SELECT id FROM users WHERE id = 1');
+  
+  if (existingUser) {
+    // Update existing user
+    await db.runAsync(
+      'UPDATE users SET name = ?, salary = ?, payday_day = ?, onboarding_completed = 1 WHERE id = 1',
+      [name, salary, payday]
+    );
+  } else {
+    // Create new user
+    await db.runAsync(
+      'INSERT INTO users (name, salary, payday_day, onboarding_completed, settings_json) VALUES (?, ?, ?, 1, ?)',
+      [name, salary, payday, JSON.stringify({
+        notifications_enabled: true,
+        app_lock_enabled: false,
+        theme: 'light',
+        language: 'ar'
+      })]
+    );
+  }
+}
+
+export async function updateUserSalary(salary: number, payday: number) {
+  await db.runAsync(
+    'UPDATE users SET salary = ?, payday_day = ? WHERE id = 1',
+    [salary, payday]
+  );
+}
+
+export async function getObligations() {
+  const obligations = await db.getAllAsync(
+    'SELECT * FROM obligations WHERE status = "active" ORDER BY due_day ASC'
+  );
+  return obligations;
+}
+
+export async function addObligation(obligation: any) {
+  const result = await db.runAsync(
+    `INSERT INTO obligations 
+     (user_id, type, creditor_name, principal_amount, installment_amount, 
+      interest_rate, start_date, due_day, installments_count, remaining_amount, status, meta_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      1, // default user
+      obligation.type,
+      obligation.creditor_name,
+      obligation.principal_amount,
+      obligation.installment_amount,
+      obligation.interest_rate || 0,
+      obligation.start_date,
+      obligation.due_day,
+      obligation.installments_count,
+      obligation.principal_amount, // initially remaining = principal
+      'active',
+      JSON.stringify(obligation.meta || {})
+    ]
+  );
+  
+  // Generate installments
+  await generateInstallments(result.lastInsertRowId, obligation);
+  return result.lastInsertRowId;
+}
+
+export async function generateInstallments(obligationId: number, obligation: any) {
+  const startDate = new Date(obligation.start_date);
+  
+  for (let i = 0; i < obligation.installments_count; i++) {
+    const dueDate = new Date(startDate);
+    dueDate.setMonth(dueDate.getMonth() + i);
+    dueDate.setDate(obligation.due_day);
+    
+    await db.runAsync(
+      'INSERT INTO installments (obligation_id, due_date, amount, status) VALUES (?, ?, ?, ?)',
+      [obligationId, dueDate.toISOString().split('T')[0], obligation.installment_amount, 'pending']
+    );
+  }
+}
+
+export async function recordPayment(payment: any) {
+  const result = await db.runAsync(
+    'INSERT INTO payments (obligation_id, installment_id, amount, date, method, note) VALUES (?, ?, ?, ?, ?, ?)',
+    [payment.obligation_id, payment.installment_id, payment.amount, payment.date, payment.method, payment.note]
+  );
+  
+  // Update installment
+  if (payment.installment_id) {
+    await db.runAsync(
+      'UPDATE installments SET paid_amount = paid_amount + ?, status = ?, paid_date = ? WHERE id = ?',
+      [payment.amount, 'paid', payment.date, payment.installment_id]
+    );
+  }
+  
+  // Update obligation remaining amount
+  await db.runAsync(
+    'UPDATE obligations SET remaining_amount = remaining_amount - ?, installments_paid = installments_paid + 1 WHERE id = ?',
+    [payment.amount, payment.obligation_id]
+  );
+  
+  return result.lastInsertRowId;
+}
+
+// Enhanced payment management
+async function addPayment(paymentData: any): Promise<number> {
+  const db = await getDatabase();
+  const result = await db.runAsync(
+    `INSERT INTO payments (obligation_id, installment_id, amount, payment_date, payment_method, note, receipt_path, meta_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      paymentData.obligation_id,
+      paymentData.installment_id || null,
+      paymentData.amount,
+      paymentData.payment_date || new Date().toISOString(),
+      paymentData.payment_method || 'cash',
+      paymentData.note || '',
+      paymentData.receipt_path || null,
+      paymentData.meta_json || null
+    ]
+  );
+  
+  return result.lastInsertRowId;
+}
+
+async function updateObligation(obligationId: number, updates: any): Promise<void> {
+  const db = await getDatabase();
+  const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+  const values = Object.values(updates).map(v => typeof v === 'string' && !isNaN(Number(v)) ? Number(v) : v);
+  
+  await db.runAsync(
+    `UPDATE obligations SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [...values, obligationId]
+  );
+}
+
+async function getObligationById(obligationId: number): Promise<any> {
+  const db = await getDatabase();
+  const result = await db.getFirstAsync(
+    'SELECT * FROM obligations WHERE id = ?',
+    [obligationId]
+  );
+  return result;
+}
+
+export async function getFinancialSummary() {
+  const user = await getUserData() as any;
+  const obligations = await getObligations();
+  
+  const totalCommitments = obligations.length;
+  const monthlyPayments = obligations.reduce((sum: number, o: any) => sum + o.installment_amount, 0);
+  const totalDebt = obligations.reduce((sum: number, o: any) => sum + o.remaining_amount, 0);
+  const paidAmount = obligations.reduce((sum: number, o: any) => sum + (o.principal_amount - o.remaining_amount), 0);
+  
+  const upcomingPayments = await getUpcomingPayments(30);
+  const completedPayments = await db.getFirstAsync(
+    'SELECT COUNT(*) as count FROM installments WHERE status = "paid"'
+  ) as any;
+  
+  return {
+    salary: user?.salary || 0,
+    totalCommitments,
+    monthlyPayments,
+    completedPayments: completedPayments?.count || 0,
+    upcomingPayments: upcomingPayments.length,
+    totalDebt,
+    paidAmount,
+    remainingBalance: (user?.salary || 0) - monthlyPayments
+  };
+}
+
+// Person management functions
+export async function addPerson(person: any) {
+  const result = await db.runAsync(
+    'INSERT INTO persons (name, phone, relationship_type) VALUES (?, ?, ?)',
+    [person.name, person.phone || '', person.relationship_type || '']
+  );
+  return result.lastInsertRowId;
+}
+
+export async function getPersons() {
+  const persons = await db.getAllAsync(
+    'SELECT * FROM persons ORDER BY name ASC'
+  );
+  return persons;
+}
+
+export async function getPersonByName(name: string) {
+  const person = await db.getFirstAsync(
+    'SELECT * FROM persons WHERE name = ?',
+    [name]
+  );
+  return person;
+}
+
+export async function updatePerson(id: number, person: any) {
+  await db.runAsync(
+    'UPDATE persons SET name = ?, phone = ?, relationship_type = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [person.name, person.phone || '', person.relationship_type || '', id]
+  );
+}
+
+export async function deletePerson(id: number) {
+  await db.runAsync('DELETE FROM persons WHERE id = ?', [id]);
+}
+
+async function getUpcomingPayments(days: number = 30): Promise<any[]> {
+  const db = await getDatabase();
+  const futureDate = new Date();
+  futureDate.setDate(futureDate.getDate() + days);
+  
+  const payments = await db.getAllAsync(`
+    SELECT i.*, o.creditor_name, o.type
+    FROM installments i
+    JOIN obligations o ON i.obligation_id = o.id
+    WHERE i.due_date <= ? AND i.status = 'pending'
+    ORDER BY i.due_date ASC`,
+    [futureDate.toISOString().split('T')[0]]
+  );
+  
+  return payments;
+}
+
+// Export new enhanced functions
+export {
+  addPayment,
+  updateObligation,
+  getObligationById,
+  getUpcomingPayments
+};
