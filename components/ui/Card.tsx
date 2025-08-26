@@ -1,40 +1,86 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
+import { View, Pressable, ViewProps } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-interface CardProps {
+interface CardProps extends ViewProps {
   children: React.ReactNode;
-  style?: ViewStyle;
-  elevated?: boolean;
-  padding?: number;
+  variant?: 'default' | 'gradient' | 'glass' | 'bordered';
+  padding?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  onPress?: () => void;
+  disabled?: boolean;
+  className?: string;
 }
 
-export function Card({ children, style, elevated = true, padding = 16 }: CardProps) {
-  const { colors } = useTheme();
-  
-  const styles = StyleSheet.create({
-    card: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      padding: padding,
-      ...(elevated && {
-        shadowColor: colors.shadowColor,
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
-      }),
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-    },
-  });
+const paddingClasses = {
+  none: '',
+  sm: 'p-3',
+  md: 'p-4',
+  lg: 'p-5',
+  xl: 'p-6',
+};
+
+const variantStyles = {
+  default: 'bg-white shadow-card',
+  gradient: '',
+  glass: 'bg-white/85 backdrop-blur-md',
+  bordered: 'bg-white border border-muted-200',
+};
+
+export const Card: React.FC<CardProps> = ({
+  children,
+  variant = 'default',
+  padding = 'md',
+  onPress,
+  disabled = false,
+  className = '',
+  ...props
+}) => {
+  const cardClasses = `
+    rounded-2xl
+    ${variantStyles[variant]}
+    ${paddingClasses[padding]}
+    ${disabled ? 'opacity-50' : ''}
+    ${className}
+  `.trim();
+
+  if (variant === 'gradient') {
+    const content = (
+      <LinearGradient
+        colors={['#FFFFFF', '#F7F9FC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        className={`rounded-2xl ${paddingClasses[padding]} ${disabled ? 'opacity-50' : ''}`}
+      >
+        {children}
+      </LinearGradient>
+    );
+
+    if (onPress) {
+      return (
+        <Pressable onPress={onPress} disabled={disabled}>
+          {content}
+        </Pressable>
+      );
+    }
+    return content;
+  }
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        className={cardClasses}
+        {...props}
+      >
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
-    <View style={[styles.card, style]}>
+    <View className={cardClasses} {...props}>
       {children}
     </View>
   );
-}
+};

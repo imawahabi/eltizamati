@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RTL Support */
+@layer base {
+  * {
+    direction: rtl;
+  }
+}
+
+/* Custom Component Styles */
+@layer components {
+  /* Gradient Backgrounds */
+  .gradient-primary {
+    background: linear-gradient(135deg, #0B63FF 0%, #2C9BF0 60%, #8FD3FF 100%);
+  }
+
+  .gradient-success {
+    background: linear-gradient(135deg, #28A745 0%, #3BCA76 60%, #7DE3A0 100%);
+  }
+
+  .gradient-card {
+    background: linear-gradient(145deg, #FFFFFF 0%, #F7F9FC 100%);
+  }
+
+  /* Glass Effects */
+  .glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .glass-dark {
+    background: rgba(15, 23, 36, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* Card Styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-card-hover hover:scale-[1.02];
+  }
+
+  /* Button Styles */
+  .btn-primary {
+    @apply bg-primary-600 text-white rounded-xl px-6 py-3 font-cairo-semibold;
+  }
+
+  .btn-secondary {
+    @apply bg-surface text-primary-600 rounded-xl px-6 py-3 font-cairo-semibold border border-primary-200;
+  }
+
+  .btn-success {
+    @apply bg-success-600 text-white rounded-xl px-6 py-3 font-cairo-semibold;
+  }
+
+  .btn-danger {
+    @apply bg-danger-500 text-white rounded-xl px-6 py-3 font-cairo-semibold;
+  }
+
+  /* Input Styles */
+  .input-base {
+    @apply bg-surface border border-muted-200 rounded-xl px-4 py-3 text-text-primary font-cairo-regular;
+  }
+
+  .input-focus {
+    @apply focus:border-primary-500 focus:ring-2 focus:ring-primary-200 focus:outline-none;
+  }
+
+  /* Badge Styles */
+  .badge {
+    @apply px-3 py-1 rounded-full text-caption font-cairo-medium;
+  }
+
+  .badge-primary {
+    @apply bg-primary-100 text-primary-700;
+  }
+
+  .badge-success {
+    @apply bg-success-100 text-success-700;
+  }
+
+  .badge-warning {
+    @apply bg-warning-100 text-warning-700;
+  }
+
+  .badge-danger {
+    @apply bg-danger-100 text-danger-700;
+  }
+
+  /* Progress Bar */
+  .progress-bar {
+    @apply bg-muted-200 rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full transition-all duration-300 ease-out;
+  }
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounceLight {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}

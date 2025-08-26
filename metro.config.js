@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
@@ -18,4 +19,4 @@ config.transformer = {
 // Increase memory limit for large projects
 config.maxWorkers = 2;
 
-module.exports = config;
+module.exports = withNativeWind(config, { input: './global.css' });

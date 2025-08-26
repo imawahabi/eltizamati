@@ -1,0 +1,136 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,jsx,ts,tsx}",
+    "./components/**/*.{js,jsx,ts,tsx}",
+    "./screens/**/*.{js,jsx,ts,tsx}"
+  ],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        // Primary Colors - Trust & Finance
+        primary: {
+          50: '#E6F2FF',
+          100: '#CCE5FF',
+          200: '#99CBFF',
+          300: '#8FD3FF',
+          400: '#5CBCFF',
+          500: '#2C9BF0',
+          600: '#0B63FF',
+          700: '#0850CC',
+          800: '#063D99',
+          900: '#032966',
+        },
+        // Success - Money & Growth
+        success: {
+          50: '#E6F7ED',
+          100: '#CCF0DA',
+          200: '#A0E3B5',
+          300: '#7DE3A0',
+          400: '#5AD68B',
+          500: '#3BCA76',
+          600: '#28A745',
+          700: '#208538',
+          800: '#18632B',
+          900: '#10421E',
+        },
+        // Warning
+        warning: {
+          50: '#FFF4E6',
+          100: '#FFE8CC',
+          200: '#FFD199',
+          300: '#FFBB66',
+          400: '#FFA533',
+          500: '#FFAA00',
+          600: '#CC8800',
+          700: '#996600',
+          800: '#664400',
+          900: '#332200',
+        },
+        // Danger
+        danger: {
+          50: '#FCE4E4',
+          100: '#F9C9C9',
+          200: '#F29393',
+          300: '#EB5D5D',
+          400: '#E42727',
+          500: '#E74C3C',
+          600: '#C53030',
+          700: '#942424',
+          800: '#631818',
+          900: '#310C0C',
+        },
+        // Neutrals
+        background: '#FFFFFF',
+        surface: '#F7F9FC',
+        muted: {
+          50: '#F9FAFB',
+          100: '#F3F4F6',
+          200: '#E5E7EB',
+          300: '#D1D5DB',
+          400: '#9CA3AF',
+          500: '#6B7280',
+          600: '#4B5563',
+          700: '#374151',
+          800: '#1F2937',
+          900: '#111827',
+        },
+        text: {
+          primary: '#0F1724',
+          secondary: '#6B7280',
+          tertiary: '#9CA3AF',
+          inverse: '#FFFFFF',
+        },
+      },
+      fontFamily: {
+        'cairo-light': ['Cairo-Light'],
+        'cairo-regular': ['Cairo-Regular'],
+        'cairo-medium': ['Cairo-Medium'],
+        'cairo-semibold': ['Cairo-SemiBold'],
+        'cairo-bold': ['Cairo-Bold'],
+        'cairo-black': ['Cairo-Black'],
+      },
+      fontSize: {
+        // Arabic-optimized sizes
+        'display': ['32px', { lineHeight: '44px', fontWeight: '700' }],
+        'h1': ['24px', { lineHeight: '32px', fontWeight: '700' }],
+        'h2': ['20px', { lineHeight: '28px', fontWeight: '600' }],
+        'h3': ['18px', { lineHeight: '26px', fontWeight: '600' }],
+        'body-lg': ['18px', { lineHeight: '28px', fontWeight: '400' }],
+        'body': ['16px', { lineHeight: '24px', fontWeight: '400' }],
+        'body-sm': ['14px', { lineHeight: '20px', fontWeight: '400' }],
+        'caption': ['12px', { lineHeight: '16px', fontWeight: '400' }],
+        'tiny': ['10px', { lineHeight: '14px', fontWeight: '400' }],
+      },
+      spacing: {
+        '18': '72px',
+        '22': '88px',
+        '26': '104px',
+        '30': '120px',
+        '34': '136px',
+      },
+      borderRadius: {
+        'xl': '16px',
+        '2xl': '20px',
+        '3xl': '24px',
+        '4xl': '32px',
+      },
+      animation: {
+        'slide-up': 'slideUp 0.3s ease-out',
+        'slide-down': 'slideDown 0.3s ease-out',
+        'slide-in': 'slideIn 0.3s ease-out',
+        'fade-in': 'fadeIn 0.2s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
+        'bounce-light': 'bounceLight 0.4s ease-in-out',
+      },
+      boxShadow: {
+        'card': '0 2px 8px rgba(15, 23, 36, 0.08)',
+        'card-hover': '0 4px 16px rgba(15, 23, 36, 0.12)',
+        'modal': '0 8px 32px rgba(15, 23, 36, 0.16)',
+        'fab': '0 4px 16px rgba(11, 99, 255, 0.24)',
+      },
+    },
+  },
+  plugins: [],
+}

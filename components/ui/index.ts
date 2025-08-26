@@ -4,11 +4,21 @@ export { Badge } from './Badge';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Chip } from './Chip';
+export { Container } from './Container';
 export { FloatingActionButton } from './FloatingActionButton';
 export { Input } from './Input';
 export { ProgressBar } from './ProgressBar';
 export { Select } from './Select';
 export { Skeleton, SkeletonText, SkeletonCard } from './Skeleton';
+export { 
+  StatCard, 
+  SalaryStatCard, 
+  CommitmentsStatCard, 
+  RemainingBalanceStatCard, 
+  PaymentsStatCard, 
+  DebtRatioStatCard 
+} from './StatCard';
+export { Typography } from './Typography';
 
 // Design tokens and utilities
 export * from './tokens';
