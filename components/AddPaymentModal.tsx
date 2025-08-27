@@ -7,14 +7,11 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { addPayment, getObligationById, updateObligation, getObligations } from '@/lib/database';
-import { Button, Card, Input, Select } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-import { useLayout } from '@/hooks/useLayout';
-import { useTranslation } from '@/hooks/useTranslation';
+import { addPayment, getDebtById, updateDebt, getDebts } from '@/lib/database';
 
 interface AddPaymentModalProps {
   visible: boolean;

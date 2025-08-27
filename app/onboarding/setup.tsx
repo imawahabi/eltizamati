@@ -10,7 +10,7 @@ import { Typography } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
-import { initializeDatabase } from '@/lib/database';
+import { initializeDatabase, completeOnboarding } from '@/lib/database';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -98,28 +98,46 @@ export default function SetupScreen() {
   const handleComplete = async () => {
     setLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    
+
     try {
       // Initialize database
       await initializeDatabase();
-      
-      // Save user setup data to database
-      // This would be implemented with actual database calls
+
+      // Validate all data before saving
+      const paydayDayNum = parseInt(setupData.paydayDay);
+      const salaryNum = parseFloat(setupData.salary);
+
+      if (isNaN(paydayDayNum) || paydayDayNum < 1 || paydayDayNum > 31) {
+        throw new Error('يوم الراتب غير صحيح');
+      }
+
+      if (isNaN(salaryNum) || salaryNum <= 0) {
+        throw new Error('الراتب غير صحيح');
+      }
+
+      if (!setupData.name.trim()) {
+        throw new Error('الاسم مطلوب');
+      }
+
+      // Save user setup data to database using the completeOnboarding function
       const userData = {
-        name: setupData.name,
-        salary: parseFloat(setupData.salary),
-        payday_day: parseInt(setupData.paydayDay),
-        settings_json: JSON.stringify({ currency: setupData.currency }),
-        onboarding_completed: 1,
+        name: setupData.name.trim(),
+        salary: salaryNum,
+        payday_day: paydayDayNum,
       };
-      
+
+      console.log('Saving user data:', userData); // Debug log
+
+      await completeOnboarding(userData);
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
+
       // Navigate to main app
       router.replace('/(tabs)');
     } catch (error) {
       console.error('Setup error:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.');
+      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.';
+      Alert.alert('خطأ', errorMessage);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);

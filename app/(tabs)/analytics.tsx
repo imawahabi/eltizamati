@@ -1,465 +1,713 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-  StyleSheet,
+  RefreshControl,
+  Alert,
+  ActivityIndicator,
   Dimensions,
-  SafeAreaView,
-  I18nManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Calendar,
-  Target,
-  AlertTriangle,
-  BarChart3,
-  PieChart,
-  Activity,
-  CreditCard,
-} from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-// Enable RTL for Arabic
-I18nManager.allowRTL(true);
-I18nManager.forceRTL(true);
+// Database
+import { 
+  getFinancialAnalytics,
+  getDebtTrends,
+  getUserSettings
+} from '@/lib/database';
+
+// Components
+import { SmartInsights } from '@/components/SmartInsights';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+interface AnalyticsData {
+  totalDebt: number;
+  monthlyPayments: number;
+  completedPayments: number;
+  overduePayments: number;
+  debtToIncomeRatio: number;
+  paymentEfficiency: number;
+  savingsRate: number;
+}
+
+interface MonthlyTrend {
+  month: string;
+  totalPayments: number;
+  completedPayments: number;
+  newDebts: number;
+}
+
 export default function AnalyticsScreen() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [monthlyTrends, setMonthlyTrends] = useState<MonthlyTrend[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState('6months');
+  const [userSettings, setUserSettings] = useState<any>(null);
 
-  // Mock financial data
-  const financialData = {
-    salary: 1200.000,
-    totalCommitments: 278.500,
-    expectedRemaining: 921.500,
-    savingsRate: 23.2,
-    commitmentRate: 76.8,
-    monthlyTrend: 5.2,
+  useEffect(() => {
+    loadAnalyticsData();
+  }, [selectedPeriod]);
+
+  const loadAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      
+      const [analytics, trends, settings] = await Promise.all([
+        getFinancialAnalytics(),
+        getDebtTrends(selectedPeriod),
+        getUserSettings()
+      ]);
+
+      setAnalyticsData(analytics);
+      setMonthlyTrends(trends);
+      setUserSettings(settings);
+    } catch (error) {
+      console.error('Error loading analytics data:', error);
+      Alert.alert('خطأ', 'حدث خطأ في تحميل البيانات التحليلية');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Mock theme colors
-  const colors = {
-    background: '#f8f9fa',
-    surface: '#ffffff',
-    primary: '#007AFF',
-    success: '#28a745',
-    error: '#dc3545',
-    warning: '#ffc107',
-    text: '#212529',
-    textSecondary: '#6c757d',
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadAnalyticsData();
+    setRefreshing(false);
   };
 
-  const styles = createStyles(colors);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('ar-KW', {
+      style: 'currency',
+      currency: 'KWD',
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }).format(amount);
+  };
 
-  // Calculate smart insights using mock data
-  const salaryAmount = financialData.salary;
-  const commitmentsThisMonth = financialData.totalCommitments;
-  const projectedRemaining = financialData.expectedRemaining;
-  const paydayDay = 25;
+  const formatPercentage = (value: number) => {
+    return `${Math.round(value)}%`;
+  };
 
-  const savingsRate = Number(((projectedRemaining / salaryAmount) * 100).toFixed(1));
-  const commitmentRate = Number(((commitmentsThisMonth / salaryAmount) * 100).toFixed(1));
-  const isHealthyBudget = projectedRemaining > (salaryAmount * 0.2);
-  const daysUntilPayday = Math.ceil((paydayDay - new Date().getDate()) % 30);
+  const getHealthScoreColor = (score: number) => {
+    if (score >= 80) return '#10B981';
+    if (score >= 60) return '#F59E0B';
+    return '#EF4444';
+  };
+
+  const getHealthScoreText = (score: number) => {
+    if (score >= 80) return 'ممتازة';
+    if (score >= 60) return 'جيدة';
+    if (score >= 40) return 'متوسطة';
+    return 'تحتاج تحسين';
+  };
+
+  const calculateHealthScore = () => {
+    if (!analyticsData || !userSettings) return 0;
+    
+    let score = 100;
+    const dti = analyticsData.debtToIncomeRatio;
+    const efficiency = analyticsData.paymentEfficiency;
+    const savings = analyticsData.savingsRate;
+    
+    // DTI penalty
+    if (dti > 50) score -= 40;
+    else if (dti > 30) score -= 20;
+    else if (dti > 20) score -= 10;
+    
+    // Payment efficiency bonus/penalty
+    if (efficiency < 70) score -= 20;
+    else if (efficiency > 90) score += 10;
+    
+    // Savings rate bonus/penalty
+    if (savings < 5) score -= 15;
+    else if (savings > 15) score += 10;
+    
+    return Math.max(0, Math.min(100, score));
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0B63FF" />
+          <Text style={styles.loadingText}>جاري تحميل التحليلات...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const healthScore = calculateHealthScore();
 
   return (
-    <View style={styles.container}>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#1E40AF" 
-        translucent={false}
-        networkActivityIndicatorVisible={false}
-      />
-      
-      {/* Modern Header with Tailwind-inspired design */}
-      <LinearGradient 
-        colors={['#1E40AF', '#3B82F6']} 
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#1E40AF', '#3B82F6']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
-            <BarChart3 size={24} color="#FFFFFF" />
+          <View style={styles.headerTop}>
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>التحليلات المالية</Text>
+              <Text style={styles.headerSubtitle}>تحليل شامل لوضعك المالي</Text>
+            </View>
+            
+            <View style={styles.headerIcon}>
+              <Ionicons name="analytics-outline" size={28} color="#FFFFFF" />
+            </View>
           </View>
-          <Text style={styles.headerTitle}>التحليلات المالية</Text>
-          <Text style={styles.headerSubtitle}>تحليل شامل وذكي لوضعك المالي</Text>
+
+          {/* Health Score */}
+          <View style={styles.healthScoreCard}>
+            <View style={styles.healthScoreHeader}>
+              <Text style={styles.healthScoreTitle}>نقاط الصحة المالية</Text>
+              <View style={[
+                styles.healthScoreBadge,
+                { backgroundColor: getHealthScoreColor(healthScore) }
+              ]}>
+                <Text style={styles.healthScoreValue}>{healthScore}</Text>
+              </View>
+            </View>
+            <Text style={[
+              styles.healthScoreText,
+              { color: getHealthScoreColor(healthScore) }
+            ]}>
+              {getHealthScoreText(healthScore)}
+            </Text>
+            <View style={styles.healthScoreBar}>
+              <View 
+                style={[
+                  styles.healthScoreFill,
+                  { 
+                    width: `${healthScore}%`,
+                    backgroundColor: getHealthScoreColor(healthScore)
+                  }
+                ]} 
+              />
+            </View>
+          </View>
         </View>
-        <View style={styles.headerDecoration} />
       </LinearGradient>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* Smart Insights */}
-        <View style={styles.insightsSection}>
-          <Text style={styles.sectionTitle}>رؤى ذكية</Text>
-          
-          <View style={styles.insightCard}>
-            <View style={[styles.insightHeader, { backgroundColor: isHealthyBudget ? colors.success + '20' : colors.error + '20' }]}>
-              {isHealthyBudget ? 
-                <TrendingUp size={20} color={colors.success} /> : 
-                <AlertTriangle size={20} color={colors.error} />
-              }
-              <Text style={[styles.insightTitle, { color: isHealthyBudget ? colors.success : colors.error }]}>
-                {isHealthyBudget ? 'ميزانية صحية' : 'تحذير الميزانية'}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0B63FF"
+            colors={['#0B63FF']}
+          />
+        }
+      >
+        {/* Period Selector */}
+        <View style={styles.periodSelector}>
+          {[
+            { key: '3months', label: '3 أشهر' },
+            { key: '6months', label: '6 أشهر' },
+            { key: '1year', label: 'سنة' },
+            { key: 'all', label: 'الكل' },
+          ].map((period) => (
+            <TouchableOpacity
+              key={period.key}
+              style={[
+                styles.periodButton,
+                selectedPeriod === period.key && styles.periodButtonActive
+              ]}
+              onPress={() => setSelectedPeriod(period.key)}
+            >
+              <Text style={[
+                styles.periodButtonText,
+                selectedPeriod === period.key && styles.periodButtonTextActive
+              ]}>
+                {period.label}
               </Text>
-            </View>
-            <Text style={styles.insightText}>
-              {isHealthyBudget ? 
-                `معدل ادخار جيد (${savingsRate}%)` : 
-                `معدل ادخار منخفض (${savingsRate}%)`
-              }
-            </Text>
-          </View>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-          <View style={styles.metricsRow}>
+        {/* Key Metrics */}
+        <View style={styles.metricsContainer}>
+          <Text style={styles.sectionTitle}>المؤشرات الرئيسية</Text>
+          
+          <View style={styles.metricsGrid}>
             <View style={styles.metricCard}>
-              <DollarSign size={16} color={colors.primary} />
-              <Text style={styles.metricValue}>{commitmentRate}%</Text>
-              <Text style={styles.metricLabel}>معدل الالتزامات</Text>
+              <View style={styles.metricIcon}>
+                <Ionicons name="trending-down" size={24} color="#EF4444" />
+              </View>
+              <Text style={styles.metricValue}>
+                {formatPercentage(analyticsData?.debtToIncomeRatio || 0)}
+              </Text>
+              <Text style={styles.metricLabel}>نسبة الدين للدخل</Text>
             </View>
-            
+
             <View style={styles.metricCard}>
-              <Target size={16} color={colors.success} />
-              <Text style={styles.metricValue}>{savingsRate}%</Text>
+              <View style={styles.metricIcon}>
+                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+              </View>
+              <Text style={styles.metricValue}>
+                {formatPercentage(analyticsData?.paymentEfficiency || 0)}
+              </Text>
+              <Text style={styles.metricLabel}>كفاءة السداد</Text>
+            </View>
+
+            <View style={styles.metricCard}>
+              <View style={styles.metricIcon}>
+                <Ionicons name="wallet" size={24} color="#0B63FF" />
+              </View>
+              <Text style={styles.metricValue}>
+                {formatPercentage(analyticsData?.savingsRate || 0)}
+              </Text>
               <Text style={styles.metricLabel}>معدل الادخار</Text>
             </View>
-            
+
             <View style={styles.metricCard}>
-              <Calendar size={16} color={colors.warning} />
-              <Text style={styles.metricValue}>{daysUntilPayday}</Text>
-              <Text style={styles.metricLabel}>أيام للراتب</Text>
+              <View style={styles.metricIcon}>
+                <Ionicons name="calendar" size={24} color="#F59E0B" />
+              </View>
+              <Text style={styles.metricValue}>
+                {analyticsData?.completedPayments || 0}
+              </Text>
+              <Text style={styles.metricLabel}>دفعات مكتملة</Text>
             </View>
           </View>
         </View>
+
+        {/* Smart Insights */}
+        {analyticsData && (
+          <SmartInsights 
+            data={{
+              totalDebt: analyticsData.totalDebt,
+              monthlyPayments: analyticsData.monthlyPayments,
+              completedPayments: analyticsData.completedPayments,
+              overduePayments: analyticsData.overduePayments,
+            }}
+          />
+        )}
 
         {/* Monthly Trends */}
-        <View style={styles.trendsSection}>
+        <View style={styles.trendsContainer}>
           <Text style={styles.sectionTitle}>الاتجاهات الشهرية</Text>
           
-          <View style={styles.trendCard}>
-            <LinearGradient
-              colors={['#007AFF', '#5856D6']}
-              style={styles.trendHeader}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <BarChart3 size={20} color="#fff" />
-              <Text style={styles.trendHeaderText}>نظرة عامة شهرية</Text>
-            </LinearGradient>
-            
-            <View style={styles.trendContent}>
-              <View style={styles.trendRow}>
-                <Text style={styles.trendLabel}>إجمالي الراتب</Text>
-                <Text style={styles.trendValue}>
-                  {Math.floor(salaryAmount)}<Text style={styles.decimalPart}>.{(salaryAmount % 1).toFixed(3).slice(2)}</Text> د.ك
-                </Text>
-              </View>
-              <View style={styles.trendRow}>
-                <Text style={styles.trendLabel}>إجمالي الالتزامات</Text>
-                <Text style={styles.trendValue}>
-                  {Math.floor(commitmentsThisMonth)}<Text style={styles.decimalPart}>.{(commitmentsThisMonth % 1).toFixed(3).slice(2)}</Text> د.ك
-                </Text>
-              </View>
-              <View style={styles.trendRow}>
-                <Text style={styles.trendLabel}>المتبقي المتوقع</Text>
-                <Text style={[styles.trendValue, { color: colors.success }]}>
-                  {Math.floor(projectedRemaining)}<Text style={styles.decimalPart}>.{(projectedRemaining % 1).toFixed(3).slice(2)}</Text> د.ك
-                </Text>
-              </View>
+          {monthlyTrends.length > 0 ? (
+            <View style={styles.trendsChart}>
+              {monthlyTrends.map((trend, index) => (
+                <View key={index} style={styles.trendItem}>
+                  <Text style={styles.trendMonth}>{trend.month}</Text>
+                  <View style={styles.trendBars}>
+                    <View style={styles.trendBar}>
+                      <View 
+                        style={[
+                          styles.trendBarFill,
+                          { 
+                            height: `${(trend.totalPayments / Math.max(...monthlyTrends.map(t => t.totalPayments))) * 100}%`,
+                            backgroundColor: '#0B63FF'
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <View style={styles.trendBar}>
+                      <View 
+                        style={[
+                          styles.trendBarFill,
+                          { 
+                            height: `${(trend.completedPayments / Math.max(...monthlyTrends.map(t => t.completedPayments))) * 100}%`,
+                            backgroundColor: '#10B981'
+                          }
+                        ]} 
+                      />
+                    </View>
+                  </View>
+                  <Text style={styles.trendValue}>{trend.totalPayments}</Text>
+                </View>
+              ))}
             </View>
-          </View>
+          ) : (
+            <View style={styles.emptyTrends}>
+              <Ionicons name="bar-chart-outline" size={48} color="#94A3B8" />
+              <Text style={styles.emptyTrendsText}>لا توجد بيانات كافية</Text>
+              <Text style={styles.emptyTrendsSubtext}>ابدأ بتسجيل المدفوعات لرؤية الاتجاهات</Text>
+            </View>
+          )}
         </View>
 
-        {/* Categories Breakdown */}
-        <View style={styles.categoriesSection}>
-          <Text style={styles.sectionTitle}>تفصيل الفئات</Text>
+        {/* Recommendations */}
+        <View style={styles.recommendationsContainer}>
+          <Text style={styles.sectionTitle}>التوصيات المالية</Text>
           
-          <View style={styles.categoryCard}>
-            <View style={styles.categoryRow}>
-              <View style={styles.categoryInfo}>
-                <CreditCard size={16} color={colors.primary} />
-                <Text style={styles.categoryName}>قروض بنكية</Text>
+          <View style={styles.recommendationsList}>
+            {healthScore < 60 && (
+              <View style={styles.recommendationItem}>
+                <View style={[styles.recommendationIcon, { backgroundColor: '#FEF3F2' }]}>
+                  <Ionicons name="warning" size={20} color="#EF4444" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>تحسين نسبة الدين للدخل</Text>
+                  <Text style={styles.recommendationText}>
+                    نسبة الديون مرتفعة، حاول تقليل الالتزامات الجديدة وزيادة المدفوعات
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.categoryAmount}>160.000 د.ك</Text>
-            </View>
-            
-            <View style={styles.categoryRow}>
-              <View style={styles.categoryInfo}>
-                <Activity size={16} color={colors.warning} />
-                <Text style={styles.categoryName}>أقساط BNPL</Text>
+            )}
+
+            {(analyticsData?.savingsRate || 0) < 10 && (
+              <View style={styles.recommendationItem}>
+                <View style={[styles.recommendationIcon, { backgroundColor: '#FFFBEB' }]}>
+                  <Ionicons name="wallet" size={20} color="#F59E0B" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>زيادة معدل الادخار</Text>
+                  <Text style={styles.recommendationText}>
+                    حاول توفير 10-20% من دخلك الشهري لبناء صندوق طوارئ
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.categoryAmount}>85.500 د.ك</Text>
-            </View>
-            
-            <View style={styles.categoryRow}>
-              <View style={styles.categoryInfo}>
-                <DollarSign size={16} color={colors.error} />
-                <Text style={styles.categoryName}>ديون شخصية</Text>
+            )}
+
+            {(analyticsData?.paymentEfficiency || 0) < 80 && (
+              <View style={styles.recommendationItem}>
+                <View style={[styles.recommendationIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="time" size={20} color="#0B63FF" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>تحسين انتظام المدفوعات</Text>
+                  <Text style={styles.recommendationText}>
+                    فعّل التنبيهات والدفع التلقائي لتجنب التأخير في السداد
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.categoryAmount}>33.000 د.ك</Text>
-            </View>
+            )}
+
+            {healthScore >= 80 && (
+              <View style={styles.recommendationItem}>
+                <View style={[styles.recommendationIcon, { backgroundColor: '#F0FDF4' }]}>
+                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                </View>
+                <View style={styles.recommendationContent}>
+                  <Text style={styles.recommendationTitle}>أداء ممتاز!</Text>
+                  <Text style={styles.recommendationText}>
+                    وضعك المالي ممتاز، استمر في هذا النهج وفكر في استثمارات إضافية
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
-        
-        {/* Recommendations */}
-        <View style={styles.recommendationsSection}>
-          <Text style={styles.sectionTitle}>التوصيات</Text>
-          
-          {commitmentRate > 70 && (
-            <View style={styles.recommendationCard}>
-              <AlertTriangle size={16} color={colors.warning} />
-              <Text style={styles.recommendationText}>
-                معدل الالتزامات مرتفع. يُنصح بمراجعة النفقات وتقليل الالتزامات الجديدة.
-              </Text>
-            </View>
-          )}
-          
-          {savingsRate < 10 && (
-            <View style={styles.recommendationCard}>
-              <TrendingDown size={16} color={colors.error} />
-              <Text style={styles.recommendationText}>
-                معدل الادخار منخفض. حاول زيادة المبلغ المدخر شهرياً.
-              </Text>
-            </View>
-          )}
-          
-          {isHealthyBudget && (
-            <View style={styles.recommendationCard}>
-              <TrendingUp size={16} color={colors.success} />
-              <Text style={styles.recommendationText}>
-                ميزانيتك في حالة جيدة! فكر في استثمار الفائض أو زيادة الادخار.
-              </Text>
-            </View>
-          )}
-        </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      paddingTop: 50,
-      paddingBottom: 20,
-      paddingHorizontal: 20,
-    },
-    headerContent: {
-      alignItems: 'center',
-    },
-    headerTitle: {
-      fontSize: 20,
-      color: '#FFFFFF',
-      fontFamily: 'Cairo-Bold',
-      textAlign: 'center',
-      marginBottom: 4,
-    },
-    headerSubtitle: {
-      fontSize: 14,
-      color: '#FFFFFF',
-      fontFamily: 'Cairo-Regular',
-      textAlign: 'center',
-      opacity: 0.9,
-    },
-    headerIconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    headerDecoration: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-      transform: [{ translateX: 30 }, { translateY: -30 }],
-    },
-    decimalPart: {
-      fontSize: 12,
-      opacity: 0.7,
-      fontFamily: 'Cairo-Regular',
-    },
-    scrollContainer: {
-      flex: 1,
-      paddingHorizontal: 20,
-    },
-    insightsSection: {
-      marginBottom: 24,
-    },
-    sectionTitle: {
-      fontSize: 20,
-      fontFamily: 'Cairo-Bold',
-      color: colors.text,
-      marginBottom: 16,
-      textAlign: 'right',
-    },
-    insightCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 16,
-    },
-    insightHeader: {
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 8,
-      marginBottom: 12,
-      gap: 8,
-    },
-    insightTitle: {
-      fontSize: 16,
-      fontFamily: 'Cairo-SemiBold',
-    },
-    insightText: {
-      fontSize: 14,
-      fontFamily: 'Cairo-Regular',
-      color: colors.textSecondary,
-      textAlign: 'right',
-      lineHeight: 20,
-    },
-    metricsRow: {
-      flexDirection: 'row-reverse',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    metricCard: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      alignItems: 'center',
-    },
-    metricValue: {
-      fontSize: 18,
-      fontFamily: 'Cairo-Bold',
-      color: colors.text,
-      marginVertical: 8,
-    },
-    metricLabel: {
-      fontSize: 12,
-      fontFamily: 'Cairo-Regular',
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    recommendationsSection: {
-      marginTop: 24,
-      marginBottom: 20,
-    },
-    recommendationCard: {
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      gap: 12,
-    },
-    recommendationText: {
-      flex: 1,
-      fontSize: 14,
-      fontFamily: 'Cairo-Regular',
-      color: colors.text,
-      textAlign: 'right',
-      lineHeight: 20,
-    },
-    trendsSection: {
-      marginBottom: 24,
-    },
-    trendCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    trendHeader: {
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      padding: 16,
-      gap: 8,
-    },
-    trendHeaderText: {
-      fontSize: 16,
-      fontFamily: 'Cairo-SemiBold',
-      color: '#fff',
-    },
-    trendContent: {
-      padding: 16,
-    },
-    trendRow: {
-      flexDirection: 'row-reverse',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.background,
-    },
-    trendLabel: {
-      fontSize: 14,
-      fontFamily: 'Cairo-Regular',
-      color: colors.textSecondary,
-    },
-    trendValue: {
-      fontSize: 16,
-      fontFamily: 'Cairo-Bold',
-      color: colors.text,
-    },
-    categoriesSection: {
-      marginBottom: 24,
-    },
-    categoryCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    categoryRow: {
-      flexDirection: 'row-reverse',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.background,
-    },
-    categoryInfo: {
-      flexDirection: 'row-reverse',
-      alignItems: 'center',
-      gap: 8,
-    },
-    categoryName: {
-      fontSize: 14,
-      fontFamily: 'Cairo-Regular',
-      color: colors.text,
-    },
-    categoryAmount: {
-      fontSize: 16,
-      fontFamily: 'Cairo-Bold',
-      color: colors.text,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+  },
+
+  // Header
+  header: {
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    gap: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  headerInfo: {
+    alignItems: 'flex-end',
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: 'Cairo-Regular',
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Health Score
+  healthScoreCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 20,
+  },
+  healthScoreHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  healthScoreTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Cairo-Bold',
+  },
+  healthScoreBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  healthScoreValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Cairo-Bold',
+  },
+  healthScoreText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 12,
+  },
+  healthScoreBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  healthScoreFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+
+  // Content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+
+  // Period Selector
+  periodSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  periodButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  periodButtonActive: {
+    backgroundColor: '#0B63FF',
+  },
+  periodButtonText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
+  },
+  periodButtonTextActive: {
+    color: '#FFFFFF',
+  },
+
+  // Metrics
+  metricsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 16,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  metricCard: {
+    width: (screenWidth - 52) / 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#0B63FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  metricIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+    textAlign: 'center',
+  },
+
+  // Trends
+  trendsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  trendsChart: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 200,
+  },
+  trendItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  trendMonth: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+    marginBottom: 8,
+  },
+  trendBars: {
+    flexDirection: 'row',
+    gap: 4,
+    height: 120,
+    alignItems: 'flex-end',
+  },
+  trendBar: {
+    width: 12,
+    height: 120,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  trendBarFill: {
+    width: '100%',
+    borderRadius: 6,
+    alignSelf: 'flex-end',
+  },
+  trendValue: {
+    fontSize: 12,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
+    marginTop: 8,
+  },
+  emptyTrends: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyTrendsText: {
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
+    marginTop: 16,
+  },
+  emptyTrendsSubtext: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontFamily: 'Cairo-Regular',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+
+  // Recommendations
+  recommendationsContainer: {
+    paddingHorizontal: 20,
+  },
+  recommendationsList: {
+    gap: 12,
+  },
+  recommendationItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    shadowColor: '#0B63FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  recommendationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  recommendationContent: {
+    flex: 1,
+  },
+  recommendationTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 4,
+  },
+  recommendationText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+    lineHeight: 20,
+  },
+});

@@ -7,14 +7,11 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Card, Input, Select } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-import { useLayout } from '@/hooks/useLayout';
-import { useTranslation } from '@/hooks/useTranslation';
-import { addObligation } from '@/lib/database';
+import { addDebt, getEntities, addEntity } from '@/lib/database';
 
 interface AddCommitmentModalProps {
   visible: boolean;
@@ -462,3 +459,5 @@ export default function AddCommitmentModal({ visible, onClose, onSave }: AddComm
     </Modal>
   );
 }
+
+export default AddCommitmentModal;

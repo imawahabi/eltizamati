@@ -12,10 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Card, Input, Select } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-import { useLayout } from '@/hooks/useLayout';
-import { addPayment, getObligations, updateObligation } from '@/lib/database';
+import { addPayment, getDebts, updateDebt } from '@/lib/database';
 
 const { width, height } = Dimensions.get('window');
 
@@ -829,3 +826,5 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 });
+
+export default SmartPaymentModal;

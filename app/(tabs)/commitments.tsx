@@ -1,387 +1,469 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  StatusBar,
-  StyleSheet,
+  RefreshControl,
+  Alert,
+  ActivityIndicator,
+  TextInput,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import {
-  Plus,
-  Search,
-  Filter,
-  CreditCard,
-  Target,
-  DollarSign,
-  Calendar,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  ArrowUpDown,
-  ChevronDown,
-  Eye,
-  EyeOff,
-} from 'lucide-react-native';
 
-const { width: screenWidth } = Dimensions.get('window');
+// Database
+import { 
+  getActiveDebts, 
+  getUserSettings
+} from '@/lib/database';
+
+// Components
+import AddCommitmentModal from '@/components/AddCommitmentModal';
+import SmartPaymentModal from '@/components/SmartPaymentModal';
+
+const { width } = Dimensions.get('window');
+
+interface Debt {
+  id: number;
+  entityId: number;
+  entityName: string;
+  entityKind: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  installmentAmount: number;
+  totalInstallments: number;
+  paidInstallments: number;
+  nextDueDate: string;
+  status: 'active' | 'completed' | 'overdue';
+  apr?: number;
+}
+
+interface UserSettings {
+  name: string;
+  salary: number;
+  currency: string;
+}
 
 export default function CommitmentsScreen() {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('urgency');
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [hideAmounts, setHideAmounts] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('nextDueDate');
+  const [balancesVisible, setBalancesVisible] = useState(true);
+  const [addDebtModalVisible, setAddDebtModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [selectedDebtId, setSelectedDebtId] = useState<number | null>(null);
 
-  const mockCommitments = [
-    {
-      id: 1,
-      entity: 'NBK',
-      type: 'loan',
-      name: 'قرض شخصي - البنك الأهلي',
-      principal: 3200.000,
-      installmentAmount: 160.000,
-      remainingInstallments: 24,
-      totalInstallments: 36,
-      dueDay: 25,
-      nextDueDate: '2025-08-25',
-      apr: 7.0,
-      status: 'active',
-      urgency: 'high',
-      category: 'بنك'
-    },
-    {
-      id: 2,
-      entity: 'Eureka',
-      type: 'bnpl',
-      name: 'تقسيط يوريكا - جهاز كمبيوتر',
-      principal: 129.500,
-      installmentAmount: 18.500,
-      remainingInstallments: 7,
-      totalInstallments: 7,
-      dueDay: 15,
-      nextDueDate: '2025-09-15',
-      apr: 0,
-      status: 'active',
-      urgency: 'medium',
-      category: 'إلكترونيات'
-    },
-    {
-      id: 3,
-      entity: 'محمد',
-      type: 'friend',
-      name: 'دين شخصي - محمد',
-      principal: 120.000,
-      installmentAmount: 40.000,
-      remainingInstallments: 2,
-      totalInstallments: 3,
-      dueDay: 10,
-      nextDueDate: '2025-09-10',
-      apr: 0,
-      status: 'active',
-      urgency: 'low',
-      category: 'شخصي'
-    },
-    {
-      id: 4,
-      entity: 'Tabby',
-      type: 'bnpl',
-      name: 'تابي - X-cite',
-      principal: 240.000,
-      installmentAmount: 60.000,
-      remainingInstallments: 4,
-      totalInstallments: 4,
-      dueDay: 5,
-      nextDueDate: '2025-09-05',
-      apr: 0,
-      status: 'active',
-      urgency: 'medium',
-      category: 'تقسيط'
-    },
-    {
-      id: 5,
-      entity: 'KFH',
-      type: 'loan',
-      name: 'قرض السيارة - بيت التمويل',
-      principal: 8500.000,
-      installmentAmount: 245.000,
-      remainingInstallments: 0,
-      totalInstallments: 48,
-      dueDay: 20,
-      nextDueDate: '2025-07-20',
-      apr: 6.5,
-      status: 'completed',
-      urgency: 'none',
-      category: 'سيارة'
-    }
-  ];
+  useEffect(() => {
+    loadDebtsData();
+  }, []);
 
-  const getCommitmentIcon = (type: string) => {
-    switch (type) {
-      case 'loan': return <CreditCard size={24} color="#1E40AF" />;
-      case 'bnpl': return <Target size={24} color="#059669" />;
-      case 'friend': return <DollarSign size={24} color="#7C3AED" />;
-      default: return <DollarSign size={24} color="#6B7280" />;
-    }
-  };
-
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case 'high': return '#EF4444';
-      case 'medium': return '#F59E0B';
-      case 'low': return '#10B981';
-      case 'none': return '#6B7280';
-      default: return '#6B7280';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle size={20} color="#10B981" />;
-      case 'active': return <Clock size={20} color="#F59E0B" />;
-      case 'overdue': return <AlertCircle size={20} color="#EF4444" />;
-      default: return <Clock size={20} color="#6B7280" />;
-    }
-  };
-
-  const getSortPriority = (commitment: any) => {
-    const urgencyPriority = { high: 3, medium: 2, low: 1, none: 0 };
-    const daysToDue = new Date(commitment.nextDueDate).getTime() - new Date().getTime();
-    const daysLeft = Math.ceil(daysToDue / (1000 * 60 * 60 * 24));
-    
-    return {
-      urgency: urgencyPriority[commitment.urgency as keyof typeof urgencyPriority] || 0,
-      daysLeft: daysLeft,
-      amount: commitment.installmentAmount,
-      remaining: commitment.remainingInstallments
-    };
-  };
-
-  const sortCommitments = (commitments: any[]) => {
-    return [...commitments].sort((a, b) => {
-      const aPriority = getSortPriority(a);
-      const bPriority = getSortPriority(b);
+  const loadDebtsData = async () => {
+    try {
+      setLoading(true);
       
+      const [debtsData, settings] = await Promise.all([
+        getActiveDebts(),
+        getUserSettings()
+      ]);
+
+      setDebts(debtsData);
+      setUserSettings(settings);
+    } catch (error) {
+      console.error('Error loading debts data:', error);
+      Alert.alert('خطأ', 'حدث خطأ في تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadDebtsData();
+    setRefreshing(false);
+  };
+
+  const formatCurrency = (amount: number) => {
+    const formatted = new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 3,
+      maximumFractionDigits: 3,
+    }).format(amount);
+
+    return formatted;
+  };
+
+  const renderCurrencyAmount = (amount: number, style: any = {}) => {
+    const formatted = formatCurrency(amount);
+    const parts = formatted.split('.');
+
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+        <Text style={[style, { fontSize: style.fontSize || 16 }]}>
+          {parts[0]}
+        </Text>
+        <Text style={[style, {
+          fontSize: (style.fontSize || 16) * 0.7,
+          opacity: 0.7,
+          marginRight: 2
+        }]}>
+          .{parts[1]}
+        </Text>
+        <Text style={[style, {
+          fontSize: (style.fontSize || 16) * 0.6,
+          opacity: 0.6,
+          marginRight: 4
+        }]}>
+          د.ك
+        </Text>
+      </View>
+    );
+  };
+
+  const getFilteredAndSortedDebts = () => {
+    let filtered = debts.filter(debt => {
+      // Filter by status
+      if (selectedFilter === 'active' && debt.status !== 'active') return false;
+      if (selectedFilter === 'completed' && debt.status !== 'completed') return false;
+      if (selectedFilter === 'overdue' && debt.status !== 'overdue') return false;
+      
+      // Filter by search query
+      if (searchQuery && !debt.entityName.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    // Sort debts
+    filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'urgency':
-          if (bPriority.urgency !== aPriority.urgency) {
-            return bPriority.urgency - aPriority.urgency;
-          }
-          return aPriority.daysLeft - bPriority.daysLeft;
-        
-        case 'dueDate':
-          return aPriority.daysLeft - bPriority.daysLeft;
-        
+        case 'nextDueDate':
+          return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
         case 'amount':
-          return bPriority.amount - aPriority.amount;
-        
-        case 'remaining':
-          return aPriority.remaining - bPriority.remaining;
-        
+          return b.remainingAmount - a.remainingAmount;
+        case 'entityName':
+          return a.entityName.localeCompare(b.entityName, 'ar');
         default:
           return 0;
       }
     });
+
+    return filtered;
   };
 
-  const filteredCommitments = sortCommitments(
-    mockCommitments.filter(commitment => {
-      if (selectedFilter === 'all') return true;
-      if (selectedFilter === 'active') return commitment.status === 'active';
-      if (selectedFilter === 'completed') return commitment.status === 'completed';
-      if (selectedFilter === 'urgent') return commitment.urgency === 'high';
-      return true;
-    })
-  );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return '#10B981';
+      case 'overdue': return '#EF4444';
+      case 'completed': return '#6B7280';
+      default: return '#6B7280';
+    }
+  };
 
-  const filters = [
-    { key: 'all', label: 'الكل', count: mockCommitments.length },
-    { key: 'active', label: 'نشط', count: mockCommitments.filter(c => c.status === 'active').length },
-    { key: 'urgent', label: 'عاجل', count: mockCommitments.filter(c => c.urgency === 'high').length },
-    { key: 'completed', label: 'مكتمل', count: mockCommitments.filter(c => c.status === 'completed').length },
-  ];
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active': return 'نشط';
+      case 'overdue': return 'متأخر';
+      case 'completed': return 'مكتمل';
+      default: return 'غير محدد';
+    }
+  };
 
-  const sortOptions = [
-    { key: 'urgency', label: 'الأولوية والاستعجال' },
-    { key: 'dueDate', label: 'تاريخ الاستحقاق' },
-    { key: 'amount', label: 'قيمة القسط' },
-    { key: 'remaining', label: 'الأقساط المتبقية' },
-  ];
+  const handleDebtPress = (debtId: number) => {
+    router.push(`/debt/${debtId}`);
+  };
+
+  const handlePaymentPress = (debtId: number) => {
+    setSelectedDebtId(debtId);
+    setPaymentModalVisible(true);
+  };
+
+  const filteredDebts = getFilteredAndSortedDebts();
+  const totalDebts = debts.reduce((sum, debt) => sum + debt.remainingAmount, 0);
+  const activeDebtsCount = debts.filter(d => d.status === 'active').length;
+  const overdueDebtsCount = debts.filter(d => d.status === 'overdue').length;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0B63FF" />
+          <Text style={styles.loadingText}>جاري تحميل الالتزامات...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <StatusBar 
-        barStyle="light-content" 
-        backgroundColor="#1E40AF" 
-        translucent={false}
-        networkActivityIndicatorVisible={false}
-      />
-      
-      {/* Modern Header with Tailwind-inspired design */}
-      <LinearGradient 
-        colors={['#1E40AF', '#3B82F6']} 
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#1E40AF', '#3B82F6']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
-            <CreditCard size={24} color="#FFFFFF" />
+          <View style={styles.headerTop}>
+            <View style={styles.headerActions}>
+              <TouchableOpacity 
+                style={styles.headerButton}
+                onPress={() => setBalancesVisible(!balancesVisible)}
+              >
+                <Ionicons 
+                  name={balancesVisible ? "eye-outline" : "eye-off-outline"} 
+                  size={24} 
+                  color="#FFFFFF" 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.headerButton}
+                onPress={() => setAddDebtModalVisible(true)}
+              >
+                <Ionicons name="add-circle-outline" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>الالتزامات المالية</Text>
+              <Text style={styles.headerSubtitle}>إدارة وتتبع جميع التزاماتك</Text>
+            </View>
+            
+            <View style={styles.headerIcon}>
+              <Ionicons name="card-outline" size={28} color="#FFFFFF" />
+            </View>
           </View>
-          <Text style={styles.headerTitle}>الإلتزامات المالية</Text>
-        </View>
-        <View style={styles.headerDecoration} />
-        <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.eyeButton}
-            onPress={() => setHideAmounts(!hideAmounts)}
-          >
-            {hideAmounts ? (
-              <EyeOff size={20} color="#FFFFFF" />
-            ) : (
-              <Eye size={20} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
+
+          {/* Summary Stats */}
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>
+                {balancesVisible ? renderCurrencyAmount(totalDebts, styles.summaryValue) : '***'}
+              </Text>
+              <Text style={styles.summaryLabel}>إجمالي الديون</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{activeDebtsCount}</Text>
+              <Text style={styles.summaryLabel}>التزام نشط</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{overdueDebtsCount}</Text>
+              <Text style={styles.summaryLabel}>متأخر</Text>
+            </View>
+          </View>
         </View>
       </LinearGradient>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <View style={styles.filtersContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
-          {filters.map((filter) => (
+        <View style={styles.searchContainer}>
+          <Ionicons name="search-outline" size={20} color="#64748B" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="البحث في الالتزامات..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholderTextColor="#94A3B8"
+          />
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
+          {[
+            { key: 'all', label: 'الكل', count: debts.length },
+            { key: 'active', label: 'نشط', count: activeDebtsCount },
+            { key: 'overdue', label: 'متأخر', count: overdueDebtsCount },
+            { key: 'completed', label: 'مكتمل', count: debts.filter(d => d.status === 'completed').length },
+          ].map((filter) => (
             <TouchableOpacity
               key={filter.key}
               style={[
-                styles.filterButton,
-                selectedFilter === filter.key && styles.filterButtonActive
+                styles.filterChip,
+                selectedFilter === filter.key && styles.filterChipActive
               ]}
               onPress={() => setSelectedFilter(filter.key)}
             >
               <Text style={[
-                styles.filterText,
-                selectedFilter === filter.key && styles.filterTextActive
+                styles.filterChipText,
+                selectedFilter === filter.key && styles.filterChipTextActive
               ]}>
-                {filter.label}
+                {filter.label} ({filter.count})
               </Text>
-              <View style={[
-                styles.filterBadge,
-                selectedFilter === filter.key && styles.filterBadgeActive
-              ]}>
-                <Text style={[
-                  styles.filterBadgeText,
-                  selectedFilter === filter.key && styles.filterBadgeTextActive
-                ]}>
-                  {filter.count}
-                </Text>
-              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        <View style={styles.sortContainer}>
+          <Text style={styles.sortLabel}>ترتيب حسب:</Text>
+          <TouchableOpacity style={styles.sortButton}>
+            <Text style={styles.sortButtonText}>
+              {sortBy === 'nextDueDate' ? 'تاريخ الاستحقاق' : 
+               sortBy === 'amount' ? 'المبلغ' : 'الاسم'}
+            </Text>
+            <Ionicons name="chevron-down-outline" size={16} color="#64748B" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-
-      {/* Add Commitment FAB */}
-      <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => router.push('/add-commitment')}
-        activeOpacity={0.8}
+      {/* Debts List */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#0B63FF"
+            colors={['#0B63FF']}
+          />
+        }
       >
-        <LinearGradient
-          colors={['#1E40AF', '#3B82F6']}
-          style={styles.fabGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
-        </LinearGradient>
-      </TouchableOpacity>
-
-      {/* Commitments List */}
-      <ScrollView style={styles.commitmentsList} showsVerticalScrollIndicator={false} contentContainerStyle={styles.commitmentsContent}>
-        {filteredCommitments.map((commitment) => (
-          <TouchableOpacity key={commitment.id} style={styles.commitmentCard}>
-            <View style={styles.commitmentHeader}>
-              <View style={styles.commitmentStatus}>
-                {getStatusIcon(commitment.status)}
-                <Text style={styles.statusText}>
-                  {commitment.status === 'active' ? 'نشط' : 
-                   commitment.status === 'completed' ? 'مكتمل' : 'متأخر'}
-                </Text>
-              </View>
-
-              <View style={styles.commitmentInfo}>
-                <Text style={styles.commitmentName}>{commitment.name}</Text>
-                <Text style={styles.commitmentEntity}>{commitment.entity}</Text>
-                <View style={styles.commitmentMeta}>
-                  <Text style={styles.metaText}>{commitment.category}</Text>
-                  <Text style={styles.metaText}>•</Text>
-                  <Text style={styles.metaText}>
-                    {commitment.apr > 0 ? `${commitment.apr}% سنوياً` : 'بدون فوائد'}
-                  </Text>
-                </View>
-              </View>
-              
-              <View style={styles.commitmentIconContainer}>
-                {getCommitmentIcon(commitment.type)}
-              </View>
-            </View>
-
-            <View style={styles.commitmentDetails}>
-              <View style={styles.amountSection}>
-                <Text style={styles.amountLabel}>القسط الشهري</Text>
-                <Text style={styles.amountValue}>
-                  {hideAmounts ? '••••••' : `${commitment.installmentAmount.toFixed(3)} د.ك`}
-                </Text>
-              </View>
-
-              <View style={styles.progressSection}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>
-                    {commitment.status === 'completed' ? 'مكتمل' : 
-                     `${commitment.remainingInstallments} من ${commitment.totalInstallments} أقساط متبقية`}
-                  </Text>
-                  <Text style={styles.progressPercentage}>
-                    {Math.round(((commitment.totalInstallments - commitment.remainingInstallments) / commitment.totalInstallments) * 100)}%
-                  </Text>
-                </View>
-                
-                <View style={styles.progressBar}>
-                  <View 
-                    style={[
-                      styles.progressFill,
-                      { 
-                        width: `${((commitment.totalInstallments - commitment.remainingInstallments) / commitment.totalInstallments) * 100}%`,
-                        backgroundColor: commitment.status === 'completed' ? '#10B981' : '#3B82F6'
-                      }
-                    ]} 
-                  />
-                </View>
-              </View>
-
-              {commitment.status === 'active' && (
-                <View style={styles.nextPayment}>
-                  <Calendar size={16} color="#6B7280" />
-                  <Text style={styles.nextPaymentText}>
-                    الدفعة القادمة: {commitment.nextDueDate}
-                  </Text>
+        {filteredDebts.length > 0 ? (
+          <View style={styles.debtsContainer}>
+            {filteredDebts.map((debt) => (
+              <TouchableOpacity
+                key={debt.id}
+                style={styles.debtCard}
+                onPress={() => handleDebtPress(debt.id)}
+              >
+                <View style={styles.debtHeader}>
+                  <View style={styles.debtInfo}>
+                    <Text style={styles.debtEntityName}>{debt.entityName}</Text>
+                    <Text style={styles.debtEntityKind}>{debt.entityKind}</Text>
+                  </View>
                   <View style={[
-                    styles.urgencyIndicator,
-                    { backgroundColor: getUrgencyColor(commitment.urgency) }
+                    styles.statusBadge,
+                    { backgroundColor: getStatusColor(debt.status) + '20' }
                   ]}>
-                    <Text style={styles.urgencyText}>
-                      {commitment.urgency === 'high' ? 'عاجل' : 
-                       commitment.urgency === 'medium' ? 'متوسط' : 'منخفض'}
+                    <Text style={[
+                      styles.statusText,
+                      { color: getStatusColor(debt.status) }
+                    ]}>
+                      {getStatusText(debt.status)}
                     </Text>
                   </View>
                 </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        ))}
+
+                <View style={styles.debtAmounts}>
+                  <View style={styles.amountItem}>
+                    <Text style={styles.amountLabel}>المبلغ المتبقي</Text>
+                    <Text style={styles.amountValue}>
+                      {balancesVisible ? renderCurrencyAmount(debt.remainingAmount, styles.amountValue) : '***'}
+                    </Text>
+                  </View>
+                  <View style={styles.amountItem}>
+                    <Text style={styles.amountLabel}>القسط الشهري</Text>
+                    <Text style={styles.amountValue}>
+                      {balancesVisible ? renderCurrencyAmount(debt.installmentAmount, styles.amountValue) : '***'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.debtProgress}>
+                  <View style={styles.progressInfo}>
+                    <Text style={styles.progressText}>
+                      {debt.paidInstallments} من {debt.totalInstallments} أقساط
+                    </Text>
+                    <Text style={styles.nextDueDate}>
+                      الاستحقاق التالي: {new Date(debt.nextDueDate).toLocaleDateString('en-US')}
+                    </Text>
+                  </View>
+                  <View style={styles.progressBar}>
+                    <View 
+                      style={[
+                        styles.progressFill,
+                        { width: `${(debt.paidInstallments / debt.totalInstallments) * 100}%` }
+                      ]} 
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.debtActions}>
+                  <TouchableOpacity
+                    style={styles.paymentButton}
+                    onPress={() => handlePaymentPress(debt.id)}
+                  >
+                    <Ionicons name="card-outline" size={16} color="#FFFFFF" />
+                    <Text style={styles.paymentButtonText}>دفع قسط</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.detailsButton}>
+                    <Text style={styles.detailsButtonText}>التفاصيل</Text>
+                    <Ionicons name="chevron-forward-outline" size={16} color="#0B63FF" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="card-outline" size={64} color="#94A3B8" />
+            <Text style={styles.emptyStateText}>لا توجد التزامات</Text>
+            <Text style={styles.emptyStateSubtext}>
+              {searchQuery ? 'لم يتم العثور على نتائج للبحث' : 'ابدأ بإضافة التزاماتك المالية'}
+            </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                style={styles.addFirstDebtButton}
+                onPress={() => setAddDebtModalVisible(true)}
+              >
+                <Text style={styles.addFirstDebtButtonText}>إضافة التزام جديد</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </ScrollView>
-    </View>
+
+      {/* Floating Add Button */}
+      {filteredDebts.length > 0 && (
+        <TouchableOpacity
+          style={styles.floatingAddButton}
+          onPress={() => setAddDebtModalVisible(true)}
+        >
+          <LinearGradient
+            colors={['#0B63FF', '#1E40AF']}
+            style={styles.floatingAddGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="add" size={24} color="#FFFFFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+
+      {/* Modals */}
+      <AddCommitmentModal
+        visible={addDebtModalVisible}
+        onClose={() => setAddDebtModalVisible(false)}
+        onSave={() => {
+          setAddDebtModalVisible(false);
+          loadDebtsData();
+        }}
+      />
+
+      <SmartPaymentModal
+        visible={paymentModalVisible}
+        onClose={() => {
+          setPaymentModalVisible(false);
+          setSelectedDebtId(null);
+        }}
+        onSave={() => {
+          setPaymentModalVisible(false);
+          setSelectedDebtId(null);
+          loadDebtsData();
+        }}
+      />
+    </SafeAreaView>
   );
 }
 
@@ -390,365 +472,361 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+  },
+
+  // Header
   header: {
-    paddingTop: 50,
-    paddingHorizontal: 24,
-    paddingBottom: 10,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    position: 'relative',
-    overflow: 'hidden',
+    paddingTop: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
   },
   headerContent: {
-    alignItems: 'center',
-    marginBottom: 20,
+    gap: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontFamily: 'Cairo-Bold',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontFamily: 'Cairo-Regular',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  headerIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  headerDecoration: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   headerActions: {
-    position: 'absolute',
-    top: 60,
-    right: 24,
+    flexDirection: 'row',
+    gap: 12,
   },
-  eyeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  filtersContainer: {
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    marginTop: -15,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  filtersScroll: {
-    paddingHorizontal: 24,
-  },
-  filterButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 5,
-    marginLeft: 12,
-    borderRadius: 25,
-    backgroundColor: '#F8FAFC',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#1E40AF',
-    borderColor: '#1E40AF',
-    elevation: 4,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  filterText: {
-    fontSize: 15,
-    color: '#64748B',
-    fontFamily: 'Cairo-Medium',
-  },
-  filterTextActive: {
-    color: '#FFFFFF',
-  },
-  filterBadge: {
-    backgroundColor: '#E2E8F0',
-    borderRadius: 50,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    minWidth: 30,
-    alignItems: 'center',
-  },
-  filterBadgeActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  filterBadgeText: {
-    fontSize: 13,
-    color: '#64748B',
-    fontFamily: 'Cairo-Bold',
-  },
-  filterBadgeTextActive: {
-    color: '#FFFFFF',
-  },
-  commitmentsList: {
-    flex: 1,
-  },
-  commitmentsContent: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 100,
-  },
-  commitmentCard: {
-    backgroundColor: '#FFFFFF',
+  headerButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  commitmentHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  commitmentIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 16,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
   },
-  commitmentInfo: {
-    flex: 1,
+  headerInfo: {
     alignItems: 'flex-end',
+    flex: 1,
   },
-  commitmentName: {
-    fontSize: 18,
-    color: '#1E293B',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     fontFamily: 'Cairo-Bold',
-    textAlign: 'right',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  commitmentEntity: {
-    fontSize: 15,
-    color: '#64748B',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-    marginBottom: 8,
-  },
-  commitmentMeta: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 10,
-  },
-  metaText: {
-    fontSize: 13,
-    color: '#94A3B8',
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
     fontFamily: 'Cairo-Regular',
   },
-  commitmentStatus: {
+  headerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    paddingVertical: 16,
+  },
+  summaryItem: {
+    alignItems: 'center',
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Cairo-Bold',
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: 'Cairo-Regular',
+    marginTop: 4,
+  },
+  summaryDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  // Filters
+  filtersContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 44,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Regular',
+    textAlign: 'right',
+  },
+  filterChips: {
+    flexDirection: 'row',
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    marginRight: 8,
+  },
+  filterChipActive: {
+    backgroundColor: '#0B63FF',
+  },
+  filterChipText: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Medium',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  sortContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sortLabel: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sortButtonText: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontFamily: 'Cairo-Medium',
+  },
+
+  // Content
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  debtsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 16,
+  },
+
+  // Debt Card
+  debtCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#0B63FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  debtHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  debtInfo: {
+    flex: 1,
+  },
+  debtEntityName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    fontFamily: 'Cairo-Bold',
+    marginBottom: 4,
+  },
+  debtEntityKind: {
+    fontSize: 14,
+    color: '#64748B',
+    fontFamily: 'Cairo-Regular',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   statusText: {
     fontSize: 12,
-    color: '#64748B',
-    fontFamily: 'Cairo-Medium',
+    fontWeight: 'bold',
+    fontFamily: 'Cairo-Bold',
   },
-  commitmentDetails: {
-    gap: 16,
-  },
-  amountSection: {
-    flexDirection: 'row-reverse',
+  debtAmounts: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    marginBottom: 16,
+  },
+  amountItem: {
+    flex: 1,
   },
   amountLabel: {
-    fontSize: 15,
+    fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Cairo-Medium',
+    fontFamily: 'Cairo-Regular',
+    marginBottom: 4,
   },
   amountValue: {
-    fontSize: 20,
+    fontSize: 16,
+    fontWeight: 'bold',
     color: '#1E293B',
     fontFamily: 'Cairo-Bold',
   },
-  progressSection: {
-    gap: 10,
+  debtProgress: {
+    marginBottom: 16,
   },
-  progressHeader: {
-    flexDirection: 'row-reverse',
+  progressInfo: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  progressLabel: {
-    fontSize: 14,
+  progressText: {
+    fontSize: 12,
     color: '#64748B',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
+    fontFamily: 'Cairo-Regular',
   },
-  progressPercentage: {
-    fontSize: 14,
-    color: '#1E293B',
-    fontFamily: 'Cairo-Bold',
+  nextDueDate: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontFamily: 'Cairo-Medium',
   },
   progressBar: {
-    height: 8,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
-    alignSelf: 'flex-end',
+    backgroundColor: '#10B981',
+    borderRadius: 3,
   },
-  nextPayment: {
-    flexDirection: 'row-reverse',
+  debtActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  paymentButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  nextPaymentText: {
+    justifyContent: 'center',
+    backgroundColor: '#0B63FF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
     flex: 1,
+  },
+  paymentButtonText: {
     fontSize: 14,
-    color: '#64748B',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  urgencyIndicator: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  urgencyText: {
-    fontSize: 12,
+    fontWeight: 'bold',
     color: '#FFFFFF',
     fontFamily: 'Cairo-Bold',
   },
-  sortContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    position: 'relative',
-  },
-  sortButton: {
-    flexDirection: 'row-reverse',
+  detailsButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  sortButtonText: {
+    justifyContent: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
     flex: 1,
-    fontSize: 15,
-    color: '#334155',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
   },
-  sortMenu: {
-    position: 'absolute',
-    top: 70,
-    left: 24,
-    right: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 12,
-    zIndex: 1000,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  sortMenuItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  sortMenuItemActive: {
-    backgroundColor: '#F0F9FF',
-  },
-  sortMenuText: {
-    flex: 1,
-    fontSize: 15,
-    color: '#334155',
-    fontFamily: 'Cairo-Medium',
-    textAlign: 'right',
-  },
-  sortMenuTextActive: {
-    color: '#1E40AF',
+  detailsButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0B63FF',
     fontFamily: 'Cairo-Bold',
   },
-  sortCheckmark: {
-    marginLeft: 10,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 24,
-    zIndex: 1000,
-    elevation: 8,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-  },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
+
+  // Empty State
+  emptyState: {
     alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#64748B',
+    fontFamily: 'Cairo-Bold',
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontFamily: 'Cairo-Regular',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  addFirstDebtButton: {
+    backgroundColor: '#0B63FF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  addFirstDebtButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'Cairo-Bold',
+  },
+
+  // Floating Button
+  floatingAddButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    shadowColor: '#0B63FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingAddGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -38,7 +38,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
       icon: 'person-outline',
     },
     {
-      title: 'ما راتبك الشهري؟',
+      title: 'كم راتبك الشهري؟',
       subtitle: 'أدخل راتبك الشهري بالدينار الكويتي',
       icon: 'card-outline',
     },
@@ -78,11 +78,36 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const handleComplete = async () => {
     setLoading(true);
     try {
-      await completeOnboarding(name.trim(), parseFloat(salary), parseInt(payday));
+      // Validate all data before saving
+      const paydayNum = parseInt(payday);
+      const salaryNum = parseFloat(salary);
+
+      if (isNaN(paydayNum) || paydayNum < 1 || paydayNum > 31) {
+        throw new Error('يوم الراتب غير صحيح');
+      }
+
+      if (isNaN(salaryNum) || salaryNum <= 0) {
+        throw new Error('الراتب غير صحيح');
+      }
+
+      if (!name.trim()) {
+        throw new Error('الاسم مطلوب');
+      }
+
+      const userData = {
+        name: name.trim(),
+        salary: salaryNum,
+        payday_day: paydayNum,
+      };
+
+      console.log('Saving user data from OnboardingScreen:', userData); // Debug log
+
+      await completeOnboarding(userData);
       onComplete();
     } catch (error) {
       console.error('Error completing onboarding:', error);
-      Alert.alert('خطأ', 'حدث خطأ أثناء حفظ البيانات');
+      const errorMessage = error instanceof Error ? error.message : 'حدث خطأ أثناء حفظ البيانات';
+      Alert.alert('خطأ', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -174,6 +199,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
             <Text style={styles.stepTitle}>متى يوم صرف راتبك؟</Text>
             <Text style={styles.stepSubtitle}>أدخل اليوم من الشهر الذي تستلم فيه راتبك</Text>
             <View style={styles.paydayContainer}>
+            <Text style={styles.paydayLabel}>من كل شهر</Text>
               <TextInput
                 style={styles.paydayInput}
                 placeholder="25"
@@ -185,7 +211,6 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
                 maxLength={2}
                 autoFocus
               />
-              <Text style={styles.paydayLabel}>من كل شهر</Text>
             </View>
             <Text style={styles.helperText}>أدخل رقم من 1 إلى 31</Text>
           </View>
@@ -227,7 +252,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
         <View style={styles.navigationContainer}>
           {currentStep > 0 && (
             <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-              <Ionicons name="arrow-forward" size={24} color="#6B7280" />
+              <Ionicons name="arrow-back" size={24} color="#6B7280" />
               <Text style={styles.backButtonText}>السابق</Text>
             </TouchableOpacity>
           )}
@@ -251,7 +276,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
                     {currentStep === steps.length - 1 ? 'ابدأ الآن' : 'التالي'}
                   </Text>
                   {currentStep < steps.length - 1 && (
-                    <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                    <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
                   )}
                 </>
               )}
@@ -476,3 +501,5 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
+
+export default OnboardingScreen;

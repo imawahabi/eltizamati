@@ -7,9 +7,7 @@ import {
   Home, 
   CreditCard, 
   BarChart3, 
-  Plus,
-  Settings,
-  Bell
+  Settings
 } from 'lucide-react-native';
 
 export default function TabLayout() {
@@ -44,34 +42,12 @@ export default function TabLayout() {
         },
       }}>
       <Tabs.Screen
-        name="settings"
+        name="index"
         options={{
-          title: 'الإعدادات',
+          title: 'الرئيسية',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.tabIconContainer, focused && styles.activeTabIcon]}>
-              <Settings size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'التنبيهات',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabIconContainer, focused && styles.activeTabIcon]}>
-              <Bell size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{
-          title: 'التحليلات',
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabIconContainer, focused && styles.activeTabIcon]}>
-              <BarChart3 size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
+              <Home size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}
@@ -88,12 +64,23 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="analytics"
         options={{
-          title: 'الرئيسية',
+          title: 'التحليلات',
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.tabIconContainer, focused && styles.activeTabIcon]}>
-              <Home size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
+              <BarChart3 size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
+            </View>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'الإعدادات',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabIconContainer, focused && styles.activeTabIcon]}>
+              <Settings size={22} color={focused ? '#FFFFFF' : color} strokeWidth={focused ? 2.5 : 2} />
             </View>
           ),
         }}

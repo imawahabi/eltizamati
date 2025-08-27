@@ -8,13 +8,11 @@ import {
   Modal,
   Alert,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Card, Input, Select } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-import { useLayout } from '@/hooks/useLayout';
-import { addObligation, getPersons, addPerson, getPersonByName, updatePerson } from '@/lib/database';
+import { addDebt, getEntities, addEntity } from '@/lib/database';
 
 const { width, height } = Dimensions.get('window');
 

@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
-import { useTranslation } from '@/hooks/useTranslation';
-import { useLayout } from '@/hooks/useLayout';
-import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { ProgressBar } from '@/components/ui/ProgressBar';
-import { ArrowUp, ArrowDown, DollarSign, Calendar, Percent, Zap } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface Debt {
   id: string;

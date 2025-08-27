@@ -8,10 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Card } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-import { useLayout } from '@/hooks/useLayout';
-import { getObligations } from '@/lib/database';
+import { getDebts } from '@/lib/database';
 
 interface CommitmentsListProps {
   onPaymentPress: (commitmentId: number) => void;
