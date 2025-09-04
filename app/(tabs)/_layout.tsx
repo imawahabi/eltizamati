@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Platform, View, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import "../global.css"
 import { 
   Home, 
   CreditCard, 

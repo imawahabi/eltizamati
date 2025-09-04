@@ -19,4 +19,4 @@ config.transformer = {
 // Increase memory limit for large projects
 config.maxWorkers = 2;
 
-module.exports = withNativeWind(config, { input: './global.css' });
+module.exports = withNativeWind(config, { input: './app/global.css' });

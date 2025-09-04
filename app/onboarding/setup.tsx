@@ -172,7 +172,7 @@ export default function SetupScreen() {
           >
             <View className="items-center mb-12">
               <LinearGradient
-                colors={['#0B63FF', '#2563EB']}
+                colors={['#0B63FF', '#2C9BF0']}
                 className="w-24 h-24 rounded-full items-center justify-center mb-6"
               >
                 <Ionicons name="person" size={36} color="#FFFFFF" />
@@ -218,7 +218,7 @@ export default function SetupScreen() {
           >
             <View className="items-center mb-12">
               <LinearGradient
-                colors={['#10B981', '#059669']}
+                colors={['#28A745', '#10B981']}
                 className="w-24 h-24 rounded-full items-center justify-center mb-6"
               >
                 <Ionicons name="wallet" size={36} color="#FFFFFF" />
@@ -270,7 +270,7 @@ export default function SetupScreen() {
           >
             <View className="items-center mb-12">
               <LinearGradient
-                colors={['#F59E0B', '#D97706']}
+                colors={['#FFAA00', '#F59E0B']}
                 className="w-24 h-24 rounded-full items-center justify-center mb-6"
               >
                 <Ionicons name="calendar" size={36} color="#FFFFFF" />

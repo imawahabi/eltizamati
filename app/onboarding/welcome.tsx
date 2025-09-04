@@ -71,7 +71,7 @@ export default function WelcomeScreen() {
     <Container safe className="flex-1">
       <StatusBar barStyle="light-content" />
       <LinearGradient
-        colors={['#0B63FF', '#005CE6', '#0047B3']}
+        colors={['#0B63FF', '#2C9BF0', '#8FD3FF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         className="flex-1"

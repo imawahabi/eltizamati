@@ -1,104 +1,58 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
-import { useTranslation } from '@/hooks/useTranslation';
-import { Plus, CreditCard, TrendingUp, FileText } from 'lucide-react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 export function QuickActions() {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-
-  const styles = createStyles(colors);
-
   const actions = [
     {
-      icon: Plus,
+      icon: 'add-outline',
       label: 'إضافة التزام',
-      color: colors.primary,
-      onPress: () => router.push('/add-debt'),
+      color: '#171717',
+      onPress: () => router.push('/add-commitment'),
     },
     {
-      icon: CreditCard,
+      icon: 'card-outline',
       label: 'تسجيل دفعة',
-      color: colors.success,
+      color: '#059669',
       onPress: () => router.push('/add-payment'),
     },
     {
-      icon: TrendingUp,
-      label: 'توقع الشهر',
-      color: colors.secondary,
-      onPress: () => router.push('/prediction'),
+      icon: 'bar-chart-outline',
+      label: 'التحليلات',
+      color: '#3B82F6',
+      onPress: () => router.push('/analytics'),
     },
     {
-      icon: FileText,
-      label: 'من النص',
-      color: colors.warning,
-      onPress: () => router.push('/nlp-input'),
+      icon: 'document-text-outline',
+      label: 'السجلات',
+      color: '#F97316',
+      onPress: () => router.push('/records'),
     },
   ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>إجراءات سريعة</Text>
+    <View className="px-6 gap-6">
+      <Text className="text-neutral-900 font-cairo-medium text-xl">إجراءات سريعة</Text>
       
-      <View style={styles.actionsGrid}>
+      <View className="flex-row gap-3">
         {actions.map((action, index) => (
           <TouchableOpacity 
             key={index}
-            style={styles.actionCard}
+            className="flex-1 bg-white rounded-2xl p-4 border border-neutral-100 active:bg-neutral-50"
             onPress={action.onPress}
           >
-            <View style={[styles.iconContainer, { backgroundColor: action.color + '20' }]}>
-              <action.icon size={24} color={action.color} />
+            <View className="items-center gap-3">
+              <View className="w-12 h-12 rounded-2xl bg-neutral-100 items-center justify-center">
+                <Ionicons name={action.icon as any} size={20} color={action.color} />
+              </View>
+              <Text className="text-neutral-700 font-cairo-medium text-sm text-center">
+                {action.label}
+              </Text>
             </View>
-            <Text style={styles.actionLabel}>{action.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
     </View>
   );
-}
-
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    container: {
-      marginBottom: 24,
-    },
-    title: {
-      fontSize: 18,
-      fontFamily: 'Cairo-SemiBold',
-      color: colors.text,
-      marginBottom: 16,
-    },
-    actionsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-    },
-    actionCard: {
-      flex: 1,
-      minWidth: '47%',
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      padding: 16,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    iconContainer: {
-      width: 48,
-      height: 48,
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 8,
-    },
-    actionLabel: {
-      fontSize: 14,
-      fontFamily: 'Cairo-SemiBold',
-      color: colors.text,
-      textAlign: 'center',
-    },
-  });
 }
